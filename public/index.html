@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>UGRUP — Sistema de Finanças</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script type="module">
+  import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import{getAuth,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,onAuthStateChanged,updateProfile}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import{getFirestore,collection,onSnapshot,doc,setDoc,deleteDoc}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  const cfg={apiKey:"AIzaSyA6GZbf7n8Rb8549pya_vgGV8oztQc33lI",authDomain:"ugroup-financas.firebaseapp.com",projectId:"ugroup-financas",storageBucket:"ugroup-financas.firebasestorage.app",messagingSenderId:"844815204870",appId:"1:844815204870:web:6c9f447eeb5af764307987"};
+  const app=initializeApp(cfg);
+  window.__auth=getAuth(app);window.__db=getFirestore(app);
+  window.__fb={collection,onSnapshot,doc,setDoc,deleteDoc,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,onAuthStateChanged,updateProfile};
+  window.dispatchEvent(new Event('fbReady'));
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --font-display:'Plus Jakarta Sans',sans-serif;
+  --font-body:'Inter',sans-serif;
+  --indigo:71 85 220;
+  --emerald:16 185 129;
+  --rose:244 63 94;
+  --amber:245 158 11;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-body);-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4,.display{font-family:var(--font-display)}
+.sh::-webkit-scrollbar{display:none}.sh{-ms-overflow-style:none;scrollbar-width:none}
+@keyframes fi{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pu{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes sp{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes si{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.ai{animation:fi .3s ease forwards}
+.apu{animation:pu 1.8s infinite}
+.asp{animation:sp 1s linear infinite}
+.bar-in{animation:si .8s ease forwards;transform-origin:left}
+/* Sidebar transition */
+aside{transition:width .25s ease}
+/* Hover card lift */
+.card-hover{transition:transform .15s ease,box-shadow .15s ease}
+.card-hover:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.07)}
+</style>
+</head>
+<body class="bg-slate-50">
+<div id="root"></div>
+<script type="text/babel">
+const{useState,useMemo,useEffect,useRef}=React;
+
+/* ─── helpers ─────────────────────────────────────────────── */
+const aM=(s,n)=>{let[y,m,d]=s.split('-').map(Number),dt=new Date(y,m-1+n,d);if(dt.getDate()!==d)dt.setDate(0);return`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;};
+const aD=(s,n)=>{let[y,m,d]=s.split('-').map(Number),dt=new Date(y,m-1,d+n);return`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;};
+const tStr=()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
+const fM=v=>new Intl.NumberFormat('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Math.abs(v));
+const fB=v=>(v<0?'- ':'')+'R$ '+fM(v);
+const dDiff=s=>Math.floor((new Date(s+'T12:00:00')-new Date(tStr()+'T12:00:00'))/864e5);
+const MN=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const MN3=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+/* ─── Category colors palette ─────────────────────────────── */
+const CAT_COLORS=['#6366f1','#10b981','#f43f5e','#f59e0b','#3b82f6','#8b5cf6','#ec4899','#14b8a6','#f97316','#64748b','#06b6d4','#84cc16'];
+const DEFAULT_CATS=[
+  {id:'c1',name:'Serviços',color:'#6366f1'},{id:'c2',name:'Vendas',color:'#10b981'},
+  {id:'c3',name:'Consultoria',color:'#3b82f6'},{id:'c4',name:'Infra',color:'#64748b'},
+  {id:'c5',name:'Software',color:'#8b5cf6'},{id:'c6',name:'Equipamentos',color:'#f97316'},
+  {id:'c7',name:'Geral',color:'#94a3b8'},{id:'c8',name:'Impostos',color:'#f43f5e'},
+  {id:'c9',name:'Folha',color:'#f59e0b'},
+];
+
+/* ─── Icons ────────────────────────────────────────────────── */
+const Ic=({n,s=18,c=''})=>{
+  const p={stroke:'currentColor',strokeWidth:'1.75',strokeLinecap:'round',strokeLinejoin:'round',fill:'none'};
+  const m={
+    up:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>,
+    dn:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>,
+    plus:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><line x1="12"y1="5"x2="12"y2="19"/><line x1="5"y1="12"x2="19"y2="12"/></svg>,
+    srch:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><circle cx="11"cy="11"r="8"/><line x1="21"y1="21"x2="16.65"y2="16.65"/></svg>,
+    x:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><line x1="18"y1="6"x2="6"y2="18"/><line x1="6"y1="6"x2="18"y2="18"/></svg>,
+    gr:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><rect x="3"y="3"width="7"height="7"rx="1"/><rect x="14"y="3"width="7"height="7"rx="1"/><rect x="14"y="14"width="7"height="7"rx="1"/><rect x="3"y="14"width="7"height="7"rx="1"/></svg>,
+    ch:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><line x1="18"y1="20"x2="18"y2="10"/><line x1="12"y1="20"x2="12"y2="4"/><line x1="6"y1="20"x2="6"y2="14"/><line x1="2"y1="20"x2="22"y2="20"/></svg>,
+    cg:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><circle cx="12"cy="12"r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
+    pn:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+    tr:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>,
+    ok:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+    rp:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>,
+    lf:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><polyline points="15 18 9 12 15 6"/></svg>,
+    rt:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><polyline points="9 18 15 12 9 6"/></svg>,
+    cl:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>,
+    dl:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12"y1="15"x2="12"y2="3"/></svg>,
+    mn:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>,
+    sn:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><circle cx="12"cy="12"r="5"/><line x1="12"y1="1"x2="12"y2="3"/><line x1="12"y1="21"x2="12"y2="23"/><line x1="4.22"y1="4.22"x2="5.64"y2="5.64"/><line x1="18.36"y1="18.36"x2="19.78"y2="19.78"/><line x1="1"y1="12"x2="3"y2="12"/><line x1="21"y1="12"x2="23"y2="12"/><line x1="4.22"y1="19.78"x2="5.64"y2="18.36"/><line x1="18.36"y1="5.64"x2="19.78"y2="4.22"/></svg>,
+    wn:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12"y1="9"x2="12"y2="13"/><line x1="12"y1="17"x2="12.01"y2="17"/></svg>,
+    ac:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>,
+    rf:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>,
+    bd:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><rect x="2"y="7"width="20"height="14"rx="2"ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>,
+    cd:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><rect x="1"y="4"width="22"height="16"rx="2"ry="2"/><line x1="1"y1="10"x2="23"y2="10"/></svg>,
+    ly:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>,
+    ca:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><rect x="3"y="4"width="18"height="18"rx="2"ry="2"/><line x1="16"y1="2"x2="16"y2="6"/><line x1="8"y1="2"x2="8"y2="6"/><line x1="3"y1="10"x2="21"y2="10"/></svg>,
+    sp:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5z"/></svg>,
+    fi:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>,
+    ck:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><circle cx="12"cy="12"r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+    us:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9"cy="7"r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+    sh:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+    up2:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12"cy="7"r="4"/><line x1="19"y1="8"x2="19"y2="14"/><line x1="16"y1="11"x2="22"y2="11"/></svg>,
+    ag:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><circle cx="12"cy="12"r="10"/><path d="M12 8v4l3 3"/></svg>,
+    bell:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>,
+    tag:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7"y1="7"x2="7.01"y2="7"/></svg>,
+    pie:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>,
+    wallet:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4z"/></svg>,
+    arrowR:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><line x1="5"y1="12"x2="19"y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
+    contacts:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9"cy="7"r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+    user:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12"cy="7"r="4"/></svg>,
+    mail:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>,
+    phone:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.59 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 5.99 5.99l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>,
+    id:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><rect x="2"y="4"width="20"height="16"rx="2"ry="2"/><circle cx="8.5"cy="10.5"r="2.5"/><polyline points="14 8 20 8"/><polyline points="14 12 20 12"/><polyline points="14 16 20 16"/><line x1="5"y1="16"x2="12"y2="16"/></svg>,
+    info:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><circle cx="12"cy="12"r="10"/><line x1="12"y1="16"x2="12"y2="12"/><line x1="12"y1="8"x2="12.01"y2="8"/></svg>,
+    bank:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><line x1="3"y1="22"x2="21"y2="22"/><line x1="6"y1="18"x2="6"y2="11"/><line x1="10"y1="18"x2="10"y2="11"/><line x1="14"y1="18"x2="14"y2="11"/><line x1="18"y1="18"x2="18"y2="11"/><polygon points="12 2 20 7 4 7"/></svg>,
+    editUser:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9"cy="7"r="4"/><path d="M23 11l-4.5 4.5-2-2L20 11l3 0z"/><path d="M16.5 15.5l-2-2"/></svg>,
+    key:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>,
+  };
+  return m[n]||null;
+};
+
+/* ─── Donut Chart ──────────────────────────────────────────── */
+const DonutChart=({data,dark})=>{
+  const [hov,setHov]=useState(null);
+  if(!data||data.length===0)return(
+    <div className="flex items-center justify-center h-48 text-slate-400 text-sm">Sem dados de despesas</div>
+  );
+  const total=data.reduce((a,d)=>a+d.value,0);
+  if(total===0)return<div className="flex items-center justify-center h-48 text-slate-400 text-sm">Sem despesas no período</div>;
+  const R=70,r=42,CX=90,CY=90;
+  let angle=-Math.PI/2;
+  const slices=data.map(d=>{
+    const pct=d.value/total;
+    const sweep=pct*2*Math.PI;
+    const x1=CX+R*Math.cos(angle),y1=CY+R*Math.sin(angle);
+    angle+=sweep;
+    const x2=CX+R*Math.cos(angle),y2=CY+R*Math.sin(angle);
+    const xi1=CX+r*Math.cos(angle-sweep),yi1=CY+r*Math.sin(angle-sweep);
+    const xi2=CX+r*Math.cos(angle),yi2=CY+r*Math.sin(angle);
+    const large=sweep>Math.PI?1:0;
+    const path=`M${x1},${y1} A${R},${R} 0 ${large},1 ${x2},${y2} L${xi2},${yi2} A${r},${r} 0 ${large},0 ${xi1},${yi1} Z`;
+    return{...d,path,pct};
+  });
+  const hovSlice=hov!==null?slices[hov]:null;
+  return(
+    <div className="flex flex-col lg:flex-row items-center gap-6">
+      <div className="relative shrink-0">
+        <svg width="180" height="180" viewBox="0 0 180 180">
+          {slices.map((s,i)=>(
+            <path key={i} d={s.path} fill={s.color} opacity={hov===null||hov===i?1:.4}
+              onMouseEnter={()=>setHov(i)} onMouseLeave={()=>setHov(null)}
+              style={{cursor:'pointer',transition:'opacity .15s'}}/>
+          ))}
+          <circle cx={CX} cy={CY} r={r-4} fill={dark?'#0f172a':'#f8fafc'}/>
+          <text x={CX} y={CY-8} textAnchor="middle" fontSize="10" fontWeight="700" fill={dark?'#94a3b8':'#64748b'} fontFamily="Inter,sans-serif">
+            {hovSlice?hovSlice.name:'Total'}
+          </text>
+          <text x={CX} y={CY+10} textAnchor="middle" fontSize="13" fontWeight="800" fill={dark?'#f1f5f9':'#1e293b'} fontFamily="Inter,sans-serif">
+            {hovSlice?`${Math.round(hovSlice.pct*100)}%`:'100%'}
+          </text>
+          <text x={CX} y={CY+24} textAnchor="middle" fontSize="8" fontWeight="600" fill={dark?'#64748b':'#94a3b8'} fontFamily="Inter,sans-serif">
+            {hovSlice?`R$ ${fM(hovSlice.value)}`:`R$ ${fM(total)}`}
+          </text>
+        </svg>
+      </div>
+      <div className="flex-1 grid grid-cols-1 gap-1.5 w-full min-w-0">
+        {slices.sort((a,b)=>b.value-a.value).map((s,i)=>(
+          <div key={i} onMouseEnter={()=>setHov(slices.indexOf(s))} onMouseLeave={()=>setHov(null)}
+            className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition-all ${hov===slices.indexOf(s)?th('bg-slate-100','bg-slate-800'):''}`}>
+            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{backgroundColor:s.color}}></span>
+            <span className={`text-xs font-semibold truncate flex-1 ${dark?'text-slate-300':'text-slate-600'}`}>{s.name}</span>
+            <span className={`text-xs font-bold tabular-nums shrink-0 ${dark?'text-slate-400':'text-slate-500'}`}>{Math.round(s.pct*100)}%</span>
+            <span className={`text-xs font-bold tabular-nums shrink-0 ${dark?'text-white':'text-slate-800'}`}>R$ {fM(s.value)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+  function th(l,d){return dark?d:l;}
+};
+
+/* ─── App ──────────────────────────────────────────────────── */
+
+const App=()=>{
+  const[fbReady,setFbReady]=useState(false);
+  const[user,setUser]=useState(null);
+  const[cs,setCs]=useState('connecting');
+  const[tab,setTab]=useState('dashboard');
+  const[ent,setEnt]=useState('all');
+  const[pf,setPf]=useState('90');
+  const[vd,setVd]=useState(new Date());
+  const[dark,setDark]=useState(false);
+  const[entities,setEntities]=useState([]);
+  const[txns,setTxns]=useState([]);
+  const[cats,setCats]=useState(DEFAULT_CATS);
+  const[showModal,setShowModal]=useState(false);
+  const[mMode,setMMode]=useState('create');
+  const[editId,setEditId]=useState(null);
+  const[showEntModal,setShowEntModal]=useState(false);
+  const[editEntId,setEditEntId]=useState(null);
+  const[showCatModal,setShowCatModal]=useState(false);
+  const[editCatId,setEditCatId]=useState(null);
+  const[cDel,setCDel]=useState({o:false,type:null,id:null,title:'',warn:''});
+  /* Modal especial para exclusão de categoria com escolha */
+  const[catDelModal,setCatDelModal]=useState({o:false,cat:null,count:0,total:0,action:'migrate',targetCat:''});
+  const[srch,setSrch]=useState('');
+  const[catFilter,setCatFilter]=useState(''); // FIX 2/4: tag filter in dashboard
+  const[catSearch,setCatSearch]=useState('');
+  const[showTxDetail,setShowTxDetail]=useState(null);
+  const[contacts,setContacts]=useState([]);
+  const[showContactModal,setShowContactModal]=useState(false);
+  const[editContactId,setEditContactId]=useState(null);
+  const[contactForm,setContactForm]=useState({name:'',type:'pj',phone:'',email:'',doc:''});
+  const[showPersonalModal,setShowPersonalModal]=useState(false); // Point 6
+  const[personalAcc,setPersonalAcc]=useState({name:'Conta Pessoal',bank:'',agency:'',accountType:'corrente',doc:'',note:''});
+  const[efMod,setEfMod]=useState({o:false,tx:null,date:''});
+
+  const th=(l,d)=>dark?d:l;
+  const catNames=cats.map(c=>c.name);
+  const catColor=name=>cats.find(c=>c.name===name)?.color||'#94a3b8';
+
+  const blank={description:'',amount:'',type:'expense',category:cats[0]?.name||'Geral',entityId:'all',date:tStr(),status:'paid',note:'',isRecurring:false,recurrenceInterval:'monthly',recurrenceType:'continuous',installmentsCount:''};
+  const[form,setForm]=useState(blank);
+  const[eForm,setEForm]=useState({name:'',type:'company'});
+  const[cForm,setCForm]=useState({name:'',color:CAT_COLORS[0]});
+
+  /* Firebase */
+  /* Auth state */
+  const[authScreen,setAuthScreen]=useState('login'); // 'login' | 'register'
+  const[authForm,setAuthForm]=useState({email:'',password:'',name:''});
+  const[authErr,setAuthErr]=useState('');
+  const[authLoading,setAuthLoading]=useState(false);
+
+  useEffect(()=>{const i=()=>setFbReady(true);if(window.__auth)i();else window.addEventListener('fbReady',i);return()=>window.removeEventListener('fbReady',i);},[]);
+  useEffect(()=>{
+    if(!fbReady)return;
+    const{onAuthStateChanged}=window.__fb;
+    return onAuthStateChanged(window.__auth,u=>{setUser(u);if(!u)setCs('idle');});
+  },[fbReady]);
+
+  const doLogin=e=>{
+    e.preventDefault();setAuthErr('');setAuthLoading(true);
+    const{signInWithEmailAndPassword}=window.__fb;
+    signInWithEmailAndPassword(window.__auth,authForm.email,authForm.password)
+      .then(()=>{setAuthForm({email:'',password:'',name:''}); setAuthLoading(false);})
+      .catch(err=>{
+        setAuthLoading(false);
+        const msgs={'auth/user-not-found':'E-mail não cadastrado.','auth/wrong-password':'Senha incorreta.','auth/invalid-credential':'E-mail ou senha incorretos.','auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos.','auth/invalid-email':'E-mail inválido.'};
+        setAuthErr(msgs[err.code]||'Erro ao entrar. Verifique seus dados.');
+      });
+  };
+
+  const doRegister=e=>{
+    e.preventDefault();setAuthErr('');setAuthLoading(true);
+    if(authForm.password.length<6){setAuthErr('A senha deve ter no mínimo 6 caracteres.');setAuthLoading(false);return;}
+    const{createUserWithEmailAndPassword,updateProfile}=window.__fb;
+    createUserWithEmailAndPassword(window.__auth,authForm.email,authForm.password)
+      .then(cred=>updateProfile(cred.user,{displayName:authForm.name||'Usuário'}).then(()=>{setAuthForm({email:'',password:'',name:''});setAuthLoading(false);}))
+      .catch(err=>{
+        setAuthLoading(false);
+        const msgs={'auth/email-already-in-use':'Este e-mail já está cadastrado.','auth/invalid-email':'E-mail inválido.','auth/weak-password':'Senha muito fraca (mín. 6 caracteres).'};
+        setAuthErr(msgs[err.code]||'Erro ao criar conta. Tente novamente.');
+      });
+  };
+
+  const doLogout=()=>{const{signOut}=window.__fb;signOut(window.__auth);};
+  useEffect(()=>{
+    if(!user||!fbReady)return;
+    const db=window.__db;const{collection,onSnapshot,doc,setDoc}=window.__fb;const uid=user.uid;
+    const u1=onSnapshot(collection(db,'ugrup',uid,'transactions'),snap=>{setTxns(snap.docs.map(d=>({id:d.id,...d.data()})));setCs('synced');},()=>setCs('error'));
+    const u2=onSnapshot(collection(db,'ugrup',uid,'entities'),snap=>{
+      if(!snap.empty)setEntities(snap.docs.map(d=>({id:d.id,...d.data()})));
+      else{const ie=[{id:'e-1',name:'Empresa Matriz',type:'company'},{id:'c-1',name:'Cartão Principal',type:'card'}];ie.forEach(e=>setDoc(doc(db,'ugrup',uid,'entities',e.id),e));}
+    });
+    const u3=onSnapshot(collection(db,'ugrup',uid,'categories'),snap=>{
+      if(!snap.empty)setCats(snap.docs.map(d=>({id:d.id,...d.data()})));
+      else DEFAULT_CATS.forEach(c=>setDoc(doc(db,'ugrup',uid,'categories',c.id),c));
+    });
+    const u4=onSnapshot(collection(db,'ugrup',uid,'contacts'),snap=>{setContacts(snap.docs.map(d=>({id:d.id,...d.data()})));});
+    const u5=onSnapshot(doc(db,'ugrup',uid,'settings','personalAccount'),snap=>{if(snap.exists())setPersonalAcc(d=>({...d,...snap.data()}));});
+    return()=>{u1();u2();u3();u4();u5();};
+  },[user,fbReady]);
+
+  const sv=async(col,id,data)=>{if(!user||!fbReady)return;setCs('syncing');try{const{doc,setDoc}=window.__fb;await setDoc(doc(window.__db,'ugrup',user.uid,col,String(id)),data);setCs('synced');}catch{setCs('error');}};
+  const rm=async(col,id)=>{if(!user||!fbReady)return;setCs('syncing');try{const{doc,deleteDoc}=window.__fb;await deleteDoc(doc(window.__db,'ugrup',user.uid,col,String(id)));setCs('synced');}catch{setCs('error');}};
+
+  /* Expand recurrences */
+  const exp=useMemo(()=>{
+    /* FIX 16: String keys for consistent realized lookup */
+    const real=txns.reduce((acc,t)=>{
+      if(t.realizedBaseId&&t.realizedIndex!==undefined){
+        if(!acc[t.realizedBaseId])acc[t.realizedBaseId]=new Set();
+        acc[t.realizedBaseId].add(String(t.realizedIndex));
+      }
+      return acc;
+    },{});
+    /* FIX 11: max date = 24 months from today */
+    const mxD=new Date(tStr()+'T12:00:00');mxD.setMonth(mxD.getMonth()+24);
+    const maxDate=`${mxD.getFullYear()}-${String(mxD.getMonth()+1).padStart(2,'0')}-01`;
+    const out=[];
+    txns.forEach(t=>{
+      if(t.realizedBaseId)return;
+      out.push({...t});
+      if(!t.isRecurring)return;
+      /* FIX 12: extended intervals */
+      const getNext=(base,i)=>{
+        if(t.recurrenceInterval==='weekly')return aD(base,i*7);
+        if(t.recurrenceInterval==='biweekly')return aD(base,i*14);
+        if(t.recurrenceInterval==='quarterly')return aM(base,i*3);
+        if(t.recurrenceInterval==='semiannual')return aM(base,i*6);
+        if(t.recurrenceInterval==='yearly')return aM(base,i*12);
+        return aM(base,i);
+      };
+      const maxIter=t.recurrenceType==='installments'&&t.installmentsCount?parseInt(t.installmentsCount,10):200;
+      for(let i=1;i<maxIter;i++){
+        const nd=getNext(t.date,i);
+        if(t.recurrenceType==='continuous'&&nd>=maxDate)break; /* FIX 11 */
+        if(real[t.id]?.has(String(i)))continue; /* FIX 16 */
+        const bd=t.description.replace(/ \(Parcela \d+\/\d+\)$/,'');
+        const lbl=t.recurrenceType==='installments'?` (Parcela ${i+1}/${t.installmentsCount})`:'';
+        out.push({...t,id:`${t.id}-v-${i}`,baseId:t.id,recIndex:i,date:nd,status:'pending',isVirtual:true,description:`${bd}${lbl}`});
+      }
+    });
+    return out;
+  },[txns]);
+
+  /* Dashboard stats */
+  const dItems=useMemo(()=>exp.filter(t=>{if(ent!=='all'&&t.entityId!==ent)return false;const[y,m]=t.date.split('-').map(Number);return(m-1)===vd.getMonth()&&y===vd.getFullYear();}).sort((a,b)=>new Date(a.date)-new Date(b.date)),[exp,ent,vd]);
+  /* FIX 2/4: filter by text search AND category tag */
+  const fdItems=useMemo(()=>{
+    let out=dItems;
+    if(srch)out=out.filter(t=>t.description.toLowerCase().includes(srch.toLowerCase())||t.category.toLowerCase().includes(srch.toLowerCase()));
+    if(catFilter)out=out.filter(t=>t.category===catFilter);
+    return out;
+  },[dItems,srch,catFilter]);
+  const dSt=useMemo(()=>{const pI=dItems.filter(t=>t.type==='income'&&t.status==='paid').reduce((a,t)=>a+t.amount,0);const pO=dItems.filter(t=>t.type==='expense'&&t.status==='paid').reduce((a,t)=>a+t.amount,0);const peI=dItems.filter(t=>t.type==='income'&&t.status==='pending').reduce((a,t)=>a+t.amount,0);const peO=dItems.filter(t=>t.type==='expense'&&t.status==='pending').reduce((a,t)=>a+t.amount,0);const tot=pI+pO;return{pI,pO,peI,peO,bal:pI-pO,exp:(pI-pO)+(peI-peO),iP:tot?pI/tot*100:0,oP:tot?pO/tot*100:0};},[dItems]);
+  /* FIX 10: only real paid transactions — never virtual */
+  const gBal=useMemo(()=>txns.filter(t=>t.status==='paid'&&!t.isVirtual).reduce((a,t)=>a+(t.type==='income'?t.amount:-t.amount),0),[txns]);
+
+  /* Donut data: expenses by category for current month */
+  const donutData=useMemo(()=>{
+    const expItems=dItems.filter(t=>t.type==='expense'&&t.status==='paid');
+    const bycat={};
+    expItems.forEach(t=>{bycat[t.category]=(bycat[t.category]||0)+t.amount;});
+    return Object.entries(bycat).map(([name,value])=>({name,value,color:catColor(name)})).sort((a,b)=>b.value-a.value).slice(0,8);
+  },[dItems,cats]);
+
+  /* Forecast */
+  const fAll=useMemo(()=>exp.filter(t=>{if(t.status!=='pending')return false;if(ent!=='all'&&t.entityId!==ent)return false;const diff=dDiff(t.date);if(diff<0)return true;if(pf==='all')return true;return diff<=parseInt(pf,10);}).sort((a,b)=>new Date(a.date)-new Date(b.date)),[exp,ent,pf]);
+  const ovItems=useMemo(()=>fAll.filter(t=>dDiff(t.date)<0),[fAll]);
+  const tdItems=useMemo(()=>fAll.filter(t=>dDiff(t.date)===0),[fAll]);
+  const fuItems=useMemo(()=>fAll.filter(t=>dDiff(t.date)>0),[fAll]);
+  const projIn=useMemo(()=>fAll.filter(t=>t.type==='income').reduce((a,t)=>a+t.amount,0),[fAll]);
+  const projOut=useMemo(()=>fAll.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0),[fAll]);
+  /* FIX 5: projFin must be useMemo so React re-renders when deps change */
+  const projFin=useMemo(()=>gBal+projIn-projOut,[gBal,projIn,projOut]);
+  const ovExp=useMemo(()=>ovItems.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0),[ovItems]);
+
+  /* Unit balances — FIX 10: exclude virtual */
+  const unitBal=useMemo(()=>{
+    const m={};
+    txns.filter(t=>t.status==='paid'&&!t.isVirtual).forEach(t=>{const k=t.entityId||'all';m[k]=(m[k]||0)+(t.type==='income'?t.amount:-t.amount);});
+    return m;
+  },[txns]);
+
+  /* Efetivar */
+  const openEf=t=>setEfMod({o:true,tx:t,date:tStr()});
+  const confEf=()=>{
+    const{tx,date}=efMod;
+    if(tx.isVirtual){
+      const bd=tx.description.replace(/ \(Parcela \d+\/\d+\)$/,'');
+      const lbl=tx.recurrenceType==='installments'?` (Parcela ${tx.recIndex+1}/${tx.installmentsCount})`:'';
+      /* FIX 16: realizedIndex as String, date = actual payment date */
+      sv('transactions',`tx-r-${Date.now()}`,{description:`${bd}${lbl}`,amount:tx.amount,type:tx.type,category:tx.category,entityId:tx.entityId,date,status:'paid',note:tx.note||'',isRecurring:false,realizedBaseId:tx.baseId,realizedIndex:String(tx.recIndex)});
+    }else{const{id,...rest}=tx;sv('transactions',id,{...rest,status:'paid',date});}
+    setEfMod({o:false,tx:null,date:''});
+  };
+
+  /* CRUD */
+  const openC=()=>{setMMode('create');setEditId(null);setForm({...blank,date:tStr(),category:cats[0]?.name||'Geral'});setShowModal(true);};
+  const openE=t=>{
+    if(t.isVirtual){alert('⚠️ Parcela automática.\nEditar afetará o lançamento base e todas as recorrências.');const base=txns.find(tx=>tx.id===t.baseId);if(!base)return;setMMode('edit');setEditId(base.id);setForm({...base});}
+    else{setMMode('edit');setEditId(t.id);setForm({...t});}
+    setShowModal(true);
+  };
+  const hSv=e=>{e.preventDefault();const p={...form,amount:parseFloat(form.amount),installmentsCount:form.isRecurring&&form.recurrenceType==='installments'?form.installmentsCount:''};delete p.isVirtual;delete p.baseId;delete p.recIndex;sv('transactions',mMode==='create'?`tx-${Date.now()}`:String(editId),p);setShowModal(false);};
+  const rDel=t=>setCDel({o:true,type:'transaction',id:t.isVirtual?t.baseId:t.id,title:t.description,warn:t.isVirtual||t.isRecurring?'Apagará o lançamento base e TODAS as parcelas futuras.':''});
+
+  /* FIX 1/2/3: Delete with migration and default restore */
+  const DEFAULT_CATS_R=[
+    {id:'c1',name:'Vendas',color:'#10b981'},{id:'c2',name:'Serviços',color:'#6366f1'},
+    {id:'c3',name:'Consultoria',color:'#3b82f6'},{id:'c4',name:'Geral',color:'#94a3b8'},
+    {id:'c5',name:'Impostos',color:'#f43f5e'},{id:'c6',name:'Folha Salarial',color:'#f59e0b'},
+  ];
+  const DEFAULT_ENTS_R=[
+    {id:'e-1',name:'Empresa Principal',type:'company'},
+    {id:'c-1',name:'Cartão Principal',type:'card'},
+  ];
+  const xDel=()=>{
+    const{type,id}=cDel;
+    const done=()=>setCDel({o:false,type:null,id:null,title:'',warn:''});
+    if(type==='transaction'){
+      rm('transactions',id);done();
+    }else if(type==='entity'){
+      // FIX: migrate transactions to 'all', no auto-restore
+      const affected=txns.filter(t=>t.entityId===id);
+      Promise.all(affected.map(t=>{const{id:tid,...rest}=t;return sv('transactions',tid,{...rest,entityId:'all'});}))
+        .then(()=>rm('entities',id))
+        .then(()=>done());
+    }else if(type==='category'){
+      // FIX: migrate transactions to 'Geral', no auto-restore
+      const cn=cats.find(c=>c.id===id)?.name;
+      const fallback=cats.find(c=>c.id!==id)?.name||'Geral';
+      const affected=cn&&cn!==fallback?txns.filter(t=>t.category===cn):[];
+      Promise.all(affected.map(t=>{const{id:tid,...rest}=t;return sv('transactions',tid,{...rest,category:fallback});}))
+        .then(()=>rm('categories',id))
+        .then(()=>done());
+    }else if(type==='contact'){
+      rm('contacts',id);done();
+    }else{done();}
+  };
+
+  /* Abre modal especial de exclusão de categoria */
+  const openCatDel=(cat)=>{
+    const count=txns.filter(t=>t.category===cat.name).length;
+    const total=txns.filter(t=>t.category===cat.name).reduce((a,t)=>a+t.amount,0);
+    const otherCats=cats.filter(c=>c.id!==cat.id);
+    setCatDelModal({o:true,cat,count,total,action:count>0?'migrate':'delete',targetCat:otherCats[0]?.name||''});
+  };
+
+  /* Confirma exclusão de categoria com ação escolhida */
+  const confCatDel=()=>{
+    const{cat,action,targetCat}=catDelModal;
+    if(!cat)return;
+    const affected=txns.filter(t=>t.category===cat.name);
+    if(action==='delete'){
+      // Exclui categoria E todos os lançamentos vinculados
+      Promise.all([
+        ...affected.map(t=>rm('transactions',t.id)),
+        rm('categories',cat.id)
+      ]).then(()=>setCatDelModal({o:false,cat:null,count:0,total:0,action:'migrate',targetCat:''}));
+    }else{
+      // Migra lançamentos para a categoria escolhida
+      const dest=targetCat||cats.find(c=>c.id!==cat.id)?.name||'Geral';
+      Promise.all(affected.map(t=>{const{id:tid,...rest}=t;return sv('transactions',tid,{...rest,category:dest});}))
+        .then(()=>rm('categories',cat.id))
+        .then(()=>setCatDelModal({o:false,cat:null,count:0,total:0,action:'migrate',targetCat:''}));
+    }
+  };
+  /* Point 4: category search */
+  const filteredCats=useMemo(()=>!catSearch?cats:cats.filter(c=>c.name.toLowerCase().includes(catSearch.toLowerCase())),[cats,catSearch]);
+
+  /* Point 5: Professional accounting-grade CSV export */
+  const hExp=(items,reportName,period)=>{
+    const now=new Date().toLocaleString('pt-BR');
+    const emitDate=new Date().toLocaleDateString('pt-BR');
+    const paid=items.filter(t=>t.status==='paid');
+    const pend=items.filter(t=>t.status==='pending');
+    const tInc=paid.filter(t=>t.type==='income').reduce((a,t)=>a+t.amount,0);
+    const tExp=paid.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0);
+    const tIncPend=pend.filter(t=>t.type==='income').reduce((a,t)=>a+t.amount,0);
+    const tExpPend=pend.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0);
+    const saldo=tInc-tExp;
+    const byCat={};
+    items.forEach(t=>{
+      if(!byCat[t.category])byCat[t.category]={incPaid:0,expPaid:0,incPend:0,expPend:0,n:0};
+      const c=byCat[t.category];c.n++;
+      if(t.type==='income'){if(t.status==='paid')c.incPaid+=t.amount;else c.incPend+=t.amount;}
+      else{if(t.status==='paid')c.expPaid+=t.amount;else c.expPend+=t.amount;}
+    });
+    const byEnt={};
+    items.forEach(t=>{
+      const n=entities.find(e=>e.id===t.entityId)?.name||(personalAcc.name||'Conta Pessoal');
+      if(!byEnt[n])byEnt[n]={inc:0,exp:0};
+      if(t.type==='income')byEnt[n].inc+=t.amount;else byEnt[n].exp+=t.amount;
+    });
+    const sorted=[...items].sort((a,b)=>new Date(a.date)-new Date(b.date));
+    const R=(...cols)=>cols.join(';');
+    const M=v=>'R$ '+fM(v);
+    const totAmt=items.reduce((a,t)=>a+t.amount,0);
+    const rows=[
+      R('EMPRESA','U GROUP'),
+      R('RELATORIO',reportName,'PERIODO',period,'EMISSAO',emitDate,'GERADO EM',now),
+      R(''),
+      R('========== RESUMO EXECUTIVO =========='),
+      R(''),
+      R('INDICADOR','REALIZADO (R$)','PREVISTO (R$)','TOTAL (R$)','% DO TOTAL'),
+      R('Receitas',M(tInc),M(tIncPend),M(tInc+tIncPend),totAmt?((tInc+tIncPend)/totAmt*100).toFixed(1)+'%':'0%'),
+      R('Despesas',M(tExp),M(tExpPend),M(tExp+tExpPend),totAmt?((tExp+tExpPend)/totAmt*100).toFixed(1)+'%':'0%'),
+      R('Saldo Liquido',M(saldo),'',M(saldo+(tIncPend-tExpPend)),''),
+      R(''),
+      R('========== POR CATEGORIA =========='),
+      R(''),
+      R('CATEGORIA','RECEITAS EFETIVADAS','DESPESAS EFETIVADAS','SALDO','RECEITAS PREVISTAS','DESPESAS PREVISTAS','QTD','% DESPESAS REAIS'),
+      ...Object.entries(byCat).sort((a,b)=>b[1].expPaid-a[1].expPaid).map(([cat,v])=>
+        R(cat,M(v.incPaid),M(v.expPaid),M(v.incPaid-v.expPaid),M(v.incPend),M(v.expPend),v.n,tExp>0?((v.expPaid/tExp)*100).toFixed(1)+'%':'0%')
+      ),
+      R('TOTAL',M(tInc),M(tExp),M(saldo),M(tIncPend),M(tExpPend),items.length,'100%'),
+      R(''),
+      R('========== POR CONTA / UNIDADE =========='),
+      R(''),
+      R('CONTA / UNIDADE','RECEITAS (R$)','DESPESAS (R$)','SALDO (R$)'),
+      ...Object.entries(byEnt).sort((a,b)=>b[1].inc-a[1].inc).map(([ent,v])=>R(ent,M(v.inc),M(v.exp),M(v.inc-v.exp))),
+      R(''),
+      R('========== LANCAMENTOS =========='),
+      R(''),
+      R('#','DATA','DESCRICAO','NATUREZA','CATEGORIA','CONTA','STATUS','VALOR (R$)','TIPO','OBSERVACAO'),
+      ...sorted.map((t,i)=>R(i+1,new Date(t.date+'T12:00:00').toLocaleDateString('pt-BR'),t.description,t.type==='income'?'RECEITA':'DESPESA',t.category,entities.find(e=>e.id===t.entityId)?.name||(personalAcc.name||'Conta Pessoal'),t.status==='paid'?'EFETIVADO':'PENDENTE',M(t.amount),(t.isVirtual||t.isRecurring)?'RECORRENTE':'AVULSO',t.note||'')),
+      R(''),
+      R('TOTAL LANCAMENTOS',items.length,'EFETIVADOS',paid.length,'PENDENTES',pend.length),
+      R('U GROUP - Sistema de Gestao Financeira'),
+      R('Documento gerado automaticamente. Confira antes de usar para fins contabeis.'),
+    ];
+    const blob=new Blob(['\ufeff'+rows.join('\n')],{type:'text/csv;charset=utf-8;'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='UGRUP_'+reportName.replace(/ /g,'_')+'_'+tStr()+'.csv';a.click();
+  };
+
+  /* Aging */
+  const aging=useMemo(()=>{
+    const b=[{label:'1–30 dias',min:1,max:30,items:[]},{label:'31–60 dias',min:31,max:60,items:[]},{label:'61–90 dias',min:61,max:90,items:[]},{label:'+90 dias',min:91,max:Infinity,items:[]}];
+    ovItems.forEach(t=>{const d=Math.abs(dDiff(t.date));const bk=b.find(bk=>d>=bk.min&&d<=bk.max);if(bk)bk.items.push(t);});
+    return b.map(bk=>({...bk,total:bk.items.reduce((a,t)=>a+(t.type==='expense'?t.amount:-t.amount),0)}));
+  },[ovItems]);
+
+  const inp=`w-full px-3.5 py-2.5 border rounded-xl font-medium text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${th('bg-slate-50 border-slate-200 text-slate-800 focus:bg-white','bg-slate-900 border-slate-700 text-slate-100')}`;
+
+  /* TRow */
+  const TRow=({t})=>{
+    const diff=dDiff(t.date);const isOv=t.status==='pending'&&diff<0;const dL=Math.abs(diff);
+    const cc=catColor(t.category);
+    return(
+      <div onClick={()=>setShowTxDetail(t)} className={`px-4 py-3 rounded-xl border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2.5 cursor-pointer transition-all card-hover ${isOv?th('bg-rose-50 border-rose-200','bg-rose-950/20 border-rose-700/40'):th('bg-white border-slate-100 hover:border-indigo-200','bg-slate-900 border-slate-800 hover:border-indigo-700/40')}`}>
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="w-0.5 h-10 rounded-full shrink-0" style={{backgroundColor:cc}}></div>
+          <div className={`w-9 h-9 rounded-xl shrink-0 flex items-center justify-center ${t.type==='income'?th('bg-emerald-50 text-emerald-600','bg-emerald-500/10 text-emerald-400'):isOv?th('bg-rose-100 text-rose-600','bg-rose-500/20 text-rose-400'):th('bg-slate-50 text-slate-500','bg-slate-800 text-slate-400')}`}>
+            <Ic n={t.type==='income'?'up':'dn'} s={15}/>
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center flex-wrap gap-1.5 mb-0.5">
+              <span className={`text-sm font-semibold truncate ${isOv?th('text-rose-800','text-rose-300'):th('text-slate-800','text-slate-100')}`}>{t.description}</span>
+              {(t.isVirtual||t.isRecurring)&&<span className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded border flex items-center gap-0.5 shrink-0 bg-violet-50 text-violet-600 border-violet-200"><Ic n="rp" s={8}/> Rec.</span>}
+              {isOv&&<span className="text-[8px] font-bold text-white bg-rose-500 px-1.5 py-0.5 rounded apu">{dL}d atraso</span>}
+              {diff===0&&t.status==='pending'&&<span className="text-[8px] font-bold text-white bg-amber-500 px-1.5 py-0.5 rounded">Hoje</span>}
+            </div>
+            <div className={`flex flex-wrap gap-x-2 text-[10px] font-medium ${th('text-slate-400','text-slate-500')}`}>
+              <span>{new Date(t.date+'T12:00:00').toLocaleDateString('pt-BR')}</span>
+              <span>·</span><span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full inline-block" style={{backgroundColor:cc}}></span>{t.category}</span>
+              <span>·</span><span>{entities.find(e=>e.id===t.entityId)?.name||'Conta Pessoal'}</span>
+              {t.note&&<><span>·</span><span className="italic truncate max-w-[100px]">"{t.note}"</span></>}
+            </div>
+          </div>
+        </div>
+        <div className={`flex items-center gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 w-full sm:w-auto ${th('border-slate-100','border-slate-800')}`} onClick={e=>e.stopPropagation()}>
+          <div className="text-left sm:text-right flex-1 sm:flex-none mr-1">
+            <span className={`text-[9px] font-bold uppercase tracking-wider block mb-0.5 ${t.status==='paid'?'text-emerald-500':isOv?'text-rose-500':'text-amber-500'}`}>{t.status==='paid'?'Efetivado':isOv?'Vencido':'Pendente'}</span>
+            <span className={`text-sm font-bold ${t.type==='income'?th('text-emerald-600','text-emerald-400'):th('text-slate-800','text-white')}`}>{t.type==='income'?'+':'-'}&nbsp;R$&nbsp;{fM(t.amount)}</span>
+          </div>
+          <div className="flex gap-1 shrink-0">
+            {t.status==='pending'&&<button onClick={()=>openEf(t)} className={`p-1.5 rounded-lg transition-all ${th('bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white','bg-indigo-500/10 text-indigo-400 hover:bg-indigo-600 hover:text-white')}`}><Ic n="ok" s={13}/></button>}
+            <button onClick={()=>openE(t)} className={`p-1.5 rounded-lg border transition-all ${th('text-slate-400 hover:text-indigo-600 border-slate-100','text-slate-500 hover:text-indigo-400 border-slate-700')}`}><Ic n="pn" s={13}/></button>
+            <button onClick={()=>rDel(t)} className={`p-1.5 rounded-lg border transition-all ${th('text-slate-300 hover:text-rose-500 border-slate-100','text-slate-600 hover:text-rose-400 border-slate-700')}`}><Ic n="tr" s={13}/></button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  /* FGroup */
+  const FGroup=({label,items,color,badge})=>{
+    if(!items.length)return null;
+    const cc={red:'text-rose-600 bg-rose-50 border-rose-200',amber:'text-amber-600 bg-amber-50 border-amber-200',blue:'text-indigo-600 bg-indigo-50 border-indigo-200'};
+    const dt={red:'bg-rose-500',amber:'bg-amber-500',blue:'bg-indigo-500'};
+    const grpInc=items.filter(t=>t.type==='income').reduce((a,t)=>a+t.amount,0);
+    const grpExp=items.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0);
+    return(
+      <div className="space-y-2">
+        <div className={`flex items-center justify-between px-3 py-2 rounded-xl border ${th(cc[color],'bg-slate-900 border-slate-700 text-slate-300')}`}>
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${dt[color]}`}></span>
+            <span className="text-xs font-bold uppercase tracking-wide">{label}</span>
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full border">{items.length}</span>
+            {badge&&ovItems.length>0&&<span className="text-[9px] font-bold text-white bg-rose-500 px-2 py-0.5 rounded-full apu">ATENÇÃO</span>}
+          </div>
+          <div className="text-right">
+            {grpInc>0&&<div className="text-xs font-bold text-emerald-600">+ R$ {fM(grpInc)}</div>}
+            {grpExp>0&&<div className="text-xs font-bold text-rose-600">- R$ {fM(grpExp)}</div>}
+          </div>
+        </div>
+        <div className="space-y-1.5 pl-2">{items.map(t=><TRow key={t.id} t={t}/>)}</div>
+      </div>
+    );
+  };
+
+  const navItems=[
+    {id:'dashboard',n:'gr',l:'Visão Mensal'},
+    {id:'forecast',n:'ch',l:'Previsão de Caixa'},
+    {id:'contacts',n:'contacts',l:'Pessoas & Empresas'},
+    {id:'team',n:'us',l:'Equipe'},
+    {id:'settings',n:'cg',l:'Configurações'},
+  ];
+
+  /* ── RENDER ── */
+
+  /* Login / Register Screen */
+  if(!user){
+    const isLogin=authScreen==='login';
+    return(
+      <div className={`min-h-screen flex items-center justify-center p-4 ${dark?'bg-slate-950':'bg-[#f1f4f9]'}`}>
+        <div className={`w-full max-w-sm rounded-2xl shadow-xl p-8 ${th('bg-white','bg-slate-900')}`}>
+          {/* Logo */}
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 mb-3">
+              <span className="text-white font-bold text-xl" style={{fontFamily:'var(--font-display)'}}>UG</span>
+            </div>
+            <p className="text-base font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>U GROUP</p>
+            <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">Sistema de Gestão Financeira</p>
+          </div>
+
+          {/* Tabs */}
+          <div className={`flex p-1 rounded-xl border mb-6 gap-1 ${th('bg-slate-50 border-slate-200','bg-slate-950 border-slate-700')}`}>
+            <button onClick={()=>{setAuthScreen('login');setAuthErr('');}} className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${isLogin?'bg-indigo-600 text-white shadow-sm':th('text-slate-500','text-slate-400')}`}>Entrar</button>
+            <button onClick={()=>{setAuthScreen('register');setAuthErr('');}} className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${!isLogin?'bg-indigo-600 text-white shadow-sm':th('text-slate-500','text-slate-400')}`}>Criar Conta</button>
+          </div>
+
+          <form onSubmit={isLogin?doLogin:doRegister} className="space-y-3.5">
+            {!isLogin&&(
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Seu Nome</label>
+                <input required={!isLogin} type="text" value={authForm.name} onChange={e=>setAuthForm({...authForm,name:e.target.value})} placeholder="Ex: Davi" className={inp}/>
+              </div>
+            )}
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">E-mail</label>
+              <input required type="email" value={authForm.email} onChange={e=>setAuthForm({...authForm,email:e.target.value})} placeholder="seu@email.com" className={inp} autoComplete="email"/>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Senha {!isLogin&&<span className="font-normal text-slate-400 normal-case">(mín. 6 caracteres)</span>}</label>
+              <input required type="password" value={authForm.password} onChange={e=>setAuthForm({...authForm,password:e.target.value})} placeholder={isLogin?'Sua senha':'Crie uma senha segura'} className={inp} autoComplete={isLogin?'current-password':'new-password'}/>
+            </div>
+            {authErr&&(
+              <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200">
+                <Ic n="wn" s={14} c="text-rose-500 shrink-0 mt-0.5"/>
+                <p className="text-xs text-rose-700 leading-relaxed">{authErr}</p>
+              </div>
+            )}
+            <button type="submit" disabled={authLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2">
+              {authLoading?<><Ic n="rf" s={14} c="asp"/>{isLogin?'Entrando…':'Criando conta…'}</>:<>{isLogin?'Entrar':'Criar Conta'}</>}
+            </button>
+          </form>
+
+          <p className="text-center text-[10px] text-slate-400 mt-5">
+            {isLogin?'Ainda não tem conta?':'Já tem uma conta?'}{' '}
+            <button onClick={()=>{setAuthScreen(isLogin?'register':'login');setAuthErr('');}} className="text-indigo-500 font-semibold hover:underline">{isLogin?'Criar conta gratuita':'Entrar agora'}</button>
+          </p>
+
+          <div className="flex justify-center mt-4">
+            <button onClick={()=>setDark(!dark)} className={`flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-lg transition-all ${th('text-slate-400 hover:bg-slate-100','text-slate-500 hover:bg-slate-800')}`}><Ic n={dark?'sn':'mn'} s={12}/>{dark?'Modo Claro':'Modo Escuro'}</button>
+          </div>
+          <div className="flex items-center justify-center gap-1.5 mt-5 pt-4 border-t border-slate-100">
+            <span className="text-[9px] text-slate-300 uppercase tracking-widest">Powered by</span>
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">U Group</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return(
+    <div className={`min-h-screen flex overflow-hidden ${dark?'bg-slate-950 text-slate-100':'bg-[#f1f4f9] text-slate-900'}`}>
+
+      {/* ════ SIDEBAR ════ */}
+      <aside className={`w-16 lg:w-64 flex flex-col shrink-0 z-30 ${th('bg-white border-r border-slate-200','bg-slate-900 border-r border-slate-800')}`}>
+        {/* Logo */}
+         <div className={`flex items-center gap-3 px-4 py-5 border-b ${th('border-slate-100','border-slate-800')}`}>
+           <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0 shadow-md shadow-indigo-500/30">
+             <span className="text-white font-bold text-xs" style={{fontFamily:'var(--font-display)'}}>UG</span>
+           </div>
+           <div className="hidden lg:block">
+             <div className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>U GROUP</div>
+             <div className="text-[9px] font-medium text-slate-400 uppercase tracking-widest mt-0.5">Sistema de Finanças</div>
+           </div>
+         </div>
+
+        {/* Alert inadimplência */}
+        {ovItems.length>0&&(
+          <div className={`mx-3 mt-3 p-2.5 rounded-lg border cursor-pointer ${th('bg-rose-50 border-rose-200','bg-rose-950/40 border-rose-700/50')}`} onClick={()=>setTab('forecast')}>
+            <div className="flex items-center gap-2">
+              <Ic n="bell" s={13} c="text-rose-500 apu shrink-0"/>
+              <div className="hidden lg:block min-w-0">
+                <p className="text-[10px] font-bold text-rose-600">{ovItems.length} lançamento(s) vencido(s)</p>
+                <p className="text-[9px] text-rose-400">R$ {fM(ovExp)} em aberto</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Nav */}
+        <nav className="flex-1 px-3 py-4 space-y-0.5">
+          <div className="hidden lg:block text-[9px] font-bold uppercase tracking-widest text-slate-400 px-2 mb-2">Menu Principal</div>
+          {navItems.map(it=>(
+            <button key={it.id} onClick={()=>setTab(it.id)} className={`w-full flex items-center justify-center lg:justify-start gap-3 px-2.5 py-2.5 rounded-lg transition-all text-sm ${tab===it.id?th('bg-indigo-50 text-indigo-700 font-semibold','bg-indigo-500/15 text-indigo-400 font-semibold'):th('text-slate-500 hover:bg-slate-50 hover:text-slate-700 font-medium','text-slate-400 hover:bg-slate-800 hover:text-slate-200 font-medium')}`}>
+              <div className={`flex items-center justify-center w-7 h-7 rounded-md transition-all ${tab===it.id?th('bg-indigo-100','bg-indigo-500/20'):''}`}>
+                <Ic n={it.n} s={16}/>
+              </div>
+              <span className="hidden lg:block">{it.l}</span>
+              {it.id==='forecast'&&ovItems.length>0&&<span className="hidden lg:flex ml-auto w-4 h-4 rounded-full bg-rose-500 text-white text-[8px] font-bold items-center justify-center">{ovItems.length}</span>}
+            </button>
+          ))}
+        </nav>
+
+        {/* Rodapé sidebar */}
+         <div className={`px-3 py-4 border-t space-y-1 ${th('border-slate-100','border-slate-800')}`}>
+           <div className={`hidden lg:flex items-center gap-2 px-2 py-2 rounded-lg mb-1 ${th('bg-slate-50','bg-slate-800/50')}`}>
+             <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0 text-white text-xs font-bold">{(user?.displayName||user?.email||'U').charAt(0).toUpperCase()}</div>
+             <div className="flex-1 min-w-0">
+               <p className={`text-[11px] font-semibold truncate ${th('text-slate-700','text-slate-200')}`}>{user?.displayName||'Usuário'}</p>
+               <p className="text-[9px] text-slate-400 truncate">{user?.email}</p>
+             </div>
+             <button onClick={doLogout} title="Sair" className={`p-1 rounded-md shrink-0 ${th('text-slate-400 hover:text-rose-500 hover:bg-rose-50','text-slate-500 hover:text-rose-400')}`}><Ic n="x" s={12}/></button>
+           </div>
+           <button onClick={()=>setDark(!dark)} className={`w-full flex items-center justify-center lg:justify-start gap-3 px-2.5 py-2 rounded-lg text-xs font-medium transition-all ${th('text-slate-500 hover:bg-slate-50','text-slate-400 hover:bg-slate-800')}`}>
+             <Ic n={dark?'sn':'mn'} s={15}/>
+             <span className="hidden lg:block">{dark?'Modo Claro':'Modo Escuro'}</span>
+           </button>
+           <button onClick={doLogout} className={`lg:hidden w-full flex items-center justify-center px-2.5 py-2 rounded-lg text-xs font-medium transition-all ${th('text-rose-400 hover:bg-rose-50','text-rose-400 hover:bg-rose-500/10')}`} title="Sair">
+             <Ic n="x" s={14}/>
+           </button>
+           <button onClick={openC} className="w-full flex items-center justify-center lg:justify-start gap-2.5 px-2.5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-all shadow-sm shadow-indigo-500/30">
+             <Ic n="plus" s={15}/>
+             <span className="hidden lg:block">Novo Lançamento</span>
+           </button>
+         </div>
+      </aside>
+
+      {/* ════ MAIN ════ */}
+      <main className={`flex-1 min-w-0 overflow-y-auto h-screen`}>
+
+        {/* Top bar */}
+        <div className={`sticky top-0 z-20 px-6 py-4 flex items-center justify-between border-b ${th('bg-white/80 border-slate-200 backdrop-blur-sm','bg-slate-900/80 border-slate-800 backdrop-blur-sm')}`}>
+          <div>
+            <h1 className="text-lg font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>
+              {tab==='dashboard'?'Fluxo Operacional':tab==='forecast'?'Previsão de Caixa':tab==='contacts'?'Pessoas & Empresas':tab==='team'?'Gestão de Equipe':'Configurações'}
+            </h1>
+            <p className={`text-xs mt-0.5 font-medium ${th('text-slate-400','text-slate-500')}`}>{tab==='dashboard'?`${MN[vd.getMonth()]} ${vd.getFullYear()} · Acompanhamento em tempo real`:tab==='forecast'?'Liquidez, vencimentos e inadimplência integrados':''}</p>
+          </div>
+          {/* Entity filter */}
+          {(tab==='dashboard'||tab==='forecast')&&(
+            <div className={`hidden md:flex items-center p-1 rounded-xl border gap-0.5 ${th('bg-slate-50 border-slate-200','bg-slate-800 border-slate-700')}`}>
+              <button onClick={()=>setEnt('all')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${ent==='all'?th('bg-white text-indigo-600 shadow-sm','bg-slate-700 text-indigo-400'):th('text-slate-500','text-slate-400')}`}><Ic n="ly" s={12}/> Todos</button>
+              {entities.map(e=><button key={e.id} onClick={()=>setEnt(e.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${ent===e.id?th('bg-white text-indigo-600 shadow-sm','bg-slate-700 text-indigo-400'):th('text-slate-500','text-slate-400')}`}><Ic n={e.type==='company'?'bd':'cd'} s={12}/>{e.name}</button>)}
+            </div>
+          )}
+        </div>
+
+        <div className="p-6 max-w-5xl mx-auto">
+
+        {/* ══ DASHBOARD ══ */}
+        {tab==='dashboard'&&(
+          <div className="space-y-5 ai pb-10">
+            {/* Nav mês */}
+            <div className="flex gap-3">
+              <div className={`flex items-center gap-2 p-2 rounded-xl border flex-1 ${th('bg-white border-slate-200','bg-slate-900 border-slate-800')}`}>
+                <button onClick={()=>setVd(new Date(vd.getFullYear(),vd.getMonth()-1,1))} className={`p-1.5 rounded-lg transition-all ${th('hover:bg-slate-100 text-slate-400','hover:bg-slate-800 text-slate-500')}`}><Ic n="lf" s={18}/></button>
+                <div className="text-center flex-1">
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-indigo-500">Período</p>
+                  <p className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>{MN[vd.getMonth()]} {vd.getFullYear()}</p>
+                </div>
+                <button onClick={()=>setVd(new Date(vd.getFullYear(),vd.getMonth()+1,1))} className={`p-1.5 rounded-lg transition-all ${th('hover:bg-slate-100 text-slate-400','hover:bg-slate-800 text-slate-500')}`}><Ic n="rt" s={18}/></button>
+              </div>
+              <button onClick={()=>hExp(dItems,`Mensal_${MN[vd.getMonth()]}_${vd.getFullYear()}`,`${MN[vd.getMonth()]} ${vd.getFullYear()}`)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold border transition-all ${th('bg-white border-slate-200 text-slate-600 hover:bg-slate-50','bg-slate-800 border-slate-700 text-slate-300')}`}><Ic n="dl" s={14}/> Exportar CSV</button>
+            </div>
+
+            {/* KPIs */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                {l:'Receitas Efetivadas',v:dSt.pI,c:'emerald',ic:'up',sub:`+ R$ ${fM(dSt.peI)} previsto`},
+                {l:'Despesas Efetivadas',v:dSt.pO,c:'rose',ic:'dn',sub:`+ R$ ${fM(dSt.peO)} previsto`},
+                {l:'Saldo Realizado',v:dSt.bal,c:'indigo',ic:'ac',sub:'Receitas − Despesas'},
+                {l:'Fechamento Estimado',v:dSt.exp,dark:true,ic:'sp',sub:'Incluindo pendentes'},
+              ].map((k,i)=>(
+                <div key={i} className={`p-4 rounded-xl border flex flex-col gap-3 card-hover ${k.dark?'bg-indigo-600 text-white border-indigo-500':th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
+                  <div className="flex items-center justify-between">
+                    <p className={`text-[10px] font-semibold uppercase tracking-wide ${k.dark?'text-indigo-200':th('text-slate-500','text-slate-400')}`}>{k.l}</p>
+                    <div className={`p-1.5 rounded-lg ${k.dark?'bg-white/15':th(`bg-${k.c}-50 text-${k.c}-500`,`bg-${k.c}-500/10 text-${k.c}-400`)}`}><Ic n={k.ic} s={13}/></div>
+                  </div>
+                  <div>
+                    <div className="flex items-baseline gap-1">
+                      <span className={`text-xs font-semibold opacity-60`}>{k.v<0?'- ':''}R$</span>
+                      <span className="text-xl font-bold" style={{fontFamily:'var(--font-display)'}}>{fM(Math.abs(k.v))}</span>
+                    </div>
+                    <p className={`text-[10px] mt-1 ${k.dark?'text-indigo-200':th('text-slate-400','text-slate-500')}`}>{k.sub}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Termômetro + Donut */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {/* Termômetro */}
+              <div className={`p-5 rounded-xl border ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
+                <p className={`text-xs font-semibold uppercase tracking-wide mb-4 ${th('text-slate-500','text-slate-400')}`}>Distribuição do Mês</p>
+                <div className="space-y-3">
+                  {[{l:'Receitas',v:dSt.pI,color:'bg-emerald-500',pct:dSt.iP},{l:'Despesas',v:dSt.pO,color:'bg-rose-500',pct:dSt.oP}].map((b,i)=>(
+                    <div key={i}>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className={`text-xs font-medium ${th('text-slate-600','text-slate-300')}`}>{b.l}</span>
+                        <span className={`text-xs font-bold ${th('text-slate-800','text-white')}`}>R$ {fM(b.v)} <span className="text-slate-400 font-normal">({Math.round(b.pct)}%)</span></span>
+                      </div>
+                      <div className={`h-2 rounded-full overflow-hidden ${th('bg-slate-100','bg-slate-800')}`}>
+                        <div className={`h-full rounded-full ${b.color} bar-in`} style={{width:`${b.pct}%`}}></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className={`mt-4 pt-4 border-t flex justify-between ${th('border-slate-100','border-slate-800')}`}>
+                  <span className={`text-xs font-medium ${th('text-slate-500','text-slate-400')}`}>Giro total</span>
+                  <span className={`text-xs font-bold ${th('text-slate-800','text-white')}`}>R$ {fM(dSt.pI+dSt.pO)}</span>
+                </div>
+              </div>
+
+              {/* Donut por categoria */}
+              <div className={`p-5 rounded-xl border ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
+                <div className="flex items-center justify-between mb-4">
+                  <p className={`text-xs font-semibold uppercase tracking-wide ${th('text-slate-500','text-slate-400')}`}>Gastos por Categoria</p>
+                  <Ic n="pie" s={15} c={th('text-slate-400','text-slate-500')}/>
+                </div>
+                <DonutChart data={donutData} dark={dark}/>
+              </div>
+            </div>
+
+            {/* Lista lançamentos */}
+            <div>
+              {/* FIX 2/4: Tag chips filter + text search */}
+              <div className="mb-3 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <h3 className={`text-sm font-semibold flex items-center gap-2 ${th('text-slate-700','text-slate-200')}`}><Ic n="fi" s={16} c="text-indigo-500"/> Lançamentos do Período <span className={`text-[10px] font-normal ${th('text-slate-400','text-slate-500')}`}>({fdItems.length})</span></h3>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Ic n="srch" s={13}/></span>
+                    <input type="text" value={srch} onChange={e=>setSrch(e.target.value)} placeholder="Buscar descrição…" className={`pl-8 pr-3 py-2 text-xs font-medium rounded-xl outline-none border focus:ring-2 focus:ring-indigo-500 ${th('bg-white border-slate-200','bg-slate-900 border-slate-700 text-white')}`}/>
+                  </div>
+                </div>
+                {/* Tag filter chips */}
+                <div className="flex flex-wrap gap-1.5">
+                  <button onClick={()=>setCatFilter('')} className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all ${!catFilter?th('bg-indigo-600 text-white border-indigo-600','bg-indigo-600 text-white border-indigo-600'):th('bg-white text-slate-500 border-slate-200 hover:border-indigo-300','bg-slate-900 text-slate-400 border-slate-700')}`}>
+                    Todas
+                  </button>
+                  {[...new Set(dItems.map(t=>t.category))].sort().map(cat=>{
+                    const cc=catColor(cat);
+                    const cnt=dItems.filter(t=>t.category===cat).length;
+                    return(
+                      <button key={cat} onClick={()=>setCatFilter(catFilter===cat?'':cat)} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all ${catFilter===cat?'text-white border-transparent':th('bg-white text-slate-600 border-slate-200 hover:border-slate-300','bg-slate-900 text-slate-300 border-slate-700')}`} style={catFilter===cat?{backgroundColor:cc,borderColor:cc}:{}}>
+                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{backgroundColor:catFilter===cat?'rgba(255,255,255,0.7)':cc}}></span>
+                        {cat} <span className="opacity-60">({cnt})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {(srch||catFilter)&&(
+                  <div className={`flex items-center justify-between text-[10px] px-3 py-1.5 rounded-lg ${th('bg-indigo-50 text-indigo-700','bg-indigo-500/10 text-indigo-300')}`}>
+                    <span>{fdItems.length} resultado(s) {catFilter?`na tag "${catFilter}"`:''}{srch?` com "${srch}"`:''}</span>
+                    <button onClick={()=>{setSrch('');setCatFilter('');}} className="font-bold underline">Limpar</button>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                {fdItems.map(t=><TRow key={t.id} t={t}/>)}
+                {!fdItems.length&&<div className={`text-center py-12 rounded-xl border-2 border-dashed ${th('border-slate-200','border-slate-800')}`}><p className="text-xs font-medium text-slate-400">Nenhum lançamento encontrado.</p></div>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ FORECAST ══ */}
+        {tab==='forecast'&&(
+          <div className="space-y-5 ai pb-10">
+            {ovItems.length>0&&(
+              <div className="p-4 rounded-xl bg-rose-600 text-white flex items-center gap-3 shadow-lg shadow-rose-500/20">
+                <div className="p-2 bg-white/20 rounded-lg shrink-0"><Ic n="wn" s={18}/></div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold">Inadimplência detectada</p>
+                  <p className="text-xs text-rose-200">{ovItems.length} lançamento(s) vencido(s) · Despesas em aberto: R$ {fM(ovExp)}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Filtro período */}
+            <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl border ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-600 rounded-lg text-white"><Ic n="ca" s={16}/></div>
+                <div>
+                  <p className="text-sm font-semibold" style={{color:dark?'white':'#0f172a'}}>Horizonte de Projeção</p>
+                  <p className="text-[10px] text-slate-400">Inadimplência sempre visível</p>
+                </div>
+              </div>
+              <div className={`flex gap-1 p-1 rounded-lg border sh ${th('bg-slate-50 border-slate-200','bg-slate-950 border-slate-700')}`}>
+                {['7','15','30','90','180','all'].map(p=>(
+                  <button key={p} onClick={()=>setPf(p)} className={`px-3 py-1.5 rounded-md text-[10px] font-semibold uppercase tracking-wide transition-all ${pf===p?'bg-indigo-600 text-white shadow-sm':th('text-slate-500 hover:bg-white hover:text-slate-700','text-slate-400 hover:bg-slate-800')}`}>
+                    {p==='all'?'Total':p==='180'?'6M':p==='90'?'3M':`${p}d`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* KPIs projeção */}
+            <div className="bg-indigo-900 p-5 rounded-2xl shadow-xl relative overflow-hidden">
+              <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4 mb-5">
+                <div>
+                  <p className="text-white font-bold text-lg" style={{fontFamily:'var(--font-display)'}}>Balanço Projetado</p>
+                  <p className="text-indigo-300 text-xs">Capital + entradas previstas − saídas previstas</p>
+                </div>
+                <button onClick={()=>hExp(fAll,`Projecao_${pf==='all'?'Total':pf+'d'}`,`Projeção ${pf==='all'?'Total':pf+' dias'}`)} className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 px-3.5 py-2 rounded-lg text-xs font-semibold text-white transition-all shrink-0"><Ic n="dl" s={13}/> Exportar CSV</button>
+              </div>
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5 relative z-10">
+                <div className={`col-span-2 lg:col-span-1 p-3.5 rounded-xl border bg-white/5 ${ovItems.length>0?'ring-1 ring-rose-400/60 border-rose-400/40':'border-white/10'}`}>
+                  <p className={`text-[8px] font-bold uppercase tracking-widest mb-1.5 flex items-center gap-1 ${ovItems.length>0?'text-rose-300':'text-white/40'}`}><Ic n="wn" s={9} c={ovItems.length>0?'apu':''}/> Em Atraso</p>
+                  <p className={`text-base font-bold whitespace-nowrap ${ovItems.length>0?'text-rose-200':'text-white/30'}`} style={{fontFamily:'var(--font-display)'}}>R$&nbsp;{fM(ovExp)}</p>
+                  <p className={`text-[9px] mt-1 ${ovItems.length>0?'text-rose-300/70':'text-white/30'}`}>{ovItems.length} item(s)</p>
+                </div>
+                {[{l:'Capital Atual',v:gBal,cl:'text-white',sub:'Saldo realizado'},{l:'Entradas Prev.',v:projIn,cl:'text-emerald-300',pf:'+ ',sub:'Receitas futuras'},{l:'Saídas Prev.',v:projOut,cl:'text-rose-300',pf:'- ',sub:'Despesas futuras'}].map((k,i)=>(
+                  <div key={i} className="p-3.5 rounded-xl border border-white/10 bg-white/5">
+                    <p className={`text-[8px] font-bold uppercase tracking-widest mb-1.5 ${k.cl} opacity-60`}>{k.l}</p>
+                    <p className={`text-base font-bold whitespace-nowrap ${k.cl}`} style={{fontFamily:'var(--font-display)'}}>{k.pf||''}{k.v<0?'- ':''}R$&nbsp;{fM(Math.abs(k.v))}</p>
+                    <p className={`text-[9px] mt-1 ${k.cl} opacity-40`}>{k.sub}</p>
+                  </div>
+                ))}
+                <div className="col-span-2 lg:col-span-1 p-3.5 rounded-xl bg-white shadow-xl">
+                  <p className="text-[8px] font-bold uppercase tracking-widest text-indigo-400 mb-1.5">Liquidez Projetada</p>
+                  <p className={`text-base font-bold whitespace-nowrap ${projFin<0?'text-rose-600':'text-indigo-700'}`} style={{fontFamily:'var(--font-display)'}}>{projFin<0?'- ':''}R$&nbsp;{fM(Math.abs(projFin))}</p>
+                  <p className="text-[9px] mt-1 text-indigo-400">Capital ± projeção</p>
+                </div>
+              </div>
+              <div className="absolute -right-16 -bottom-16 w-64 h-64 bg-white/5 rounded-full blur-3xl pointer-events-none"></div>
+            </div>
+
+            {/* Aging */}
+            {ovItems.length>0&&(
+              <div className={`p-5 rounded-xl border ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
+                <div className="flex items-center justify-between mb-4">
+                  <p className={`text-sm font-semibold flex items-center gap-2 ${th('text-slate-700','text-slate-200')}`}><Ic n="ag" s={15} c="text-rose-500"/> Relatório de Aging</p>
+                  <span className="text-[9px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-1 rounded-lg">{ovItems.length} em aberto</span>
+                </div>
+                <div className="space-y-3">
+                  {[{c:'#fbbf24',l:'1–30 dias'},{c:'#f97316',l:'31–60 dias'},{c:'#f43f5e',l:'61–90 dias'},{c:'#be123c',l:'+90 dias'}].map((age,i)=>{
+                    const b=aging[i];if(!b.items.length)return null;
+                    const max=Math.max(...aging.map(a=>Math.abs(a.total)),1);
+                    return(
+                      <div key={i}>
+                        <div className="flex justify-between text-[10px] font-semibold mb-1.5">
+                          <span className={th('text-slate-600','text-slate-300')}>{age.l} · {b.items.length} item(s)</span>
+                          <span className="text-rose-500 font-bold">R$ {fM(Math.abs(b.total))}</span>
+                        </div>
+                        <div className={`h-1.5 rounded-full overflow-hidden ${th('bg-slate-100','bg-slate-800')}`}>
+                          <div className="h-full rounded-full bar-in" style={{width:`${Math.abs(b.total)/max*100}%`,backgroundColor:age.c}}></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* FIX 6: Compromissos com sumário por tipo */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className={`text-sm font-semibold flex items-center gap-2 ${th('text-slate-700','text-slate-200')}`}><Ic n="ck" s={15} c="text-indigo-500"/> Compromissos <span className={`text-[10px] font-normal ml-1 ${th('text-slate-400','text-slate-500')}`}>{fAll.length} total</span></p>
+              </div>
+              {/* Summary cards */}
+              {fAll.length>0&&(
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                  {[
+                    {l:'A Receber',v:fAll.filter(t=>t.type==='income').reduce((a,t)=>a+t.amount,0),c:'emerald',ic:'up',n:fAll.filter(t=>t.type==='income').length},
+                    {l:'A Pagar',v:fAll.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0),c:'rose',ic:'dn',n:fAll.filter(t=>t.type==='expense').length},
+                    {l:'Saldo Prev.',v:fAll.filter(t=>t.type==='income').reduce((a,t)=>a+t.amount,0)-fAll.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0),c:'indigo',ic:'ac',n:fAll.length},
+                    {l:'Recorrentes',v:fAll.filter(t=>t.isVirtual||t.isRecurring).length,c:'violet',ic:'rp',n:null,isCount:true},
+                  ].map((s,i)=>(
+                    <div key={i} className={`p-3.5 rounded-xl border ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className={`text-[9px] font-bold uppercase tracking-wide ${th('text-slate-500','text-slate-400')}`}>{s.l}</p>
+                        <div className={`p-1.5 rounded-lg ${th(`bg-${s.c}-50 text-${s.c}-500`,`bg-${s.c}-500/10 text-${s.c}-400`)}`}><Ic n={s.ic} s={11}/></div>
+                      </div>
+                      {s.isCount
+                        ?<p className={`text-lg font-bold ${th('text-slate-800','text-white')}`} style={{fontFamily:'var(--font-display)'}}>{s.v} item(s)</p>
+                        :<p className={`text-sm font-bold whitespace-nowrap ${s.v<0?'text-rose-500':th('text-slate-800','text-white')}`} style={{fontFamily:'var(--font-display)'}}>{s.v<0?'- ':''}R$&nbsp;{fM(Math.abs(s.v))}</p>
+                      }
+                      {s.n!==null&&!s.isCount&&<p className="text-[9px] text-slate-400 mt-0.5">{s.n} lançamento(s)</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <FGroup label="Vencidos — Ação Necessária" items={ovItems} color="red" badge/>
+              <FGroup label="Vencem Hoje" items={tdItems} color="amber"/>
+              <FGroup label="A Vencer" items={fuItems} color="blue"/>
+              {!fAll.length&&<div className={`text-center py-12 rounded-xl border-2 border-dashed ${th('border-slate-200','border-slate-800')}`}><p className="text-xs font-medium text-slate-400">Nenhum compromisso pendente para este período.</p></div>}
+            </div>
+          </div>
+        )}
+
+        {/* ══ CONTACTS ══ */}
+        {tab==='contacts'&&(
+          <div className="space-y-4 ai pb-10 max-w-3xl">
+            <div className="flex justify-between items-center">
+              <p className={`text-xs font-medium ${th('text-slate-500','text-slate-400')}`}>{contacts.length} cadastro(s)</p>
+              <button onClick={()=>{setEditContactId(null);setContactForm({name:'',type:'pj',phone:'',email:'',doc:''});setShowContactModal(true);}} className="flex items-center gap-2 bg-indigo-600 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm"><Ic n="plus" s={13}/> Novo Cadastro</button>
+            </div>
+            {!contacts.length&&(
+              <div className={`text-center py-16 rounded-xl border-2 border-dashed ${th('border-slate-200','border-slate-800')}`}>
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3 ${th('bg-slate-100 text-slate-400','bg-slate-800 text-slate-500')}`}><Ic n="contacts" s={22}/></div>
+                <p className={`text-sm font-semibold ${th('text-slate-600','text-slate-300')}`}>Nenhum contato cadastrado</p>
+                <p className="text-xs text-slate-400 mt-1">Cadastre pessoas físicas ou jurídicas para vincular aos lançamentos.</p>
+                <button onClick={()=>{setEditContactId(null);setContactForm({name:'',type:'pj',phone:'',email:'',doc:''});setShowContactModal(true);}} className="mt-4 flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-semibold mx-auto"><Ic n="plus" s={13}/> Adicionar primeiro contato</button>
+              </div>
+            )}
+            {contacts.length>0&&(
+              <div className={`rounded-xl border overflow-hidden ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
+                {contacts.map((c,i)=>(
+                  <div key={c.id} className={`flex items-center justify-between px-4 py-3.5 ${i<contacts.length-1?th('border-b border-slate-100','border-b border-slate-800'):''}`}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-bold text-white text-sm ${c.type==='pj'?'bg-blue-500':'bg-emerald-500'}`}>{(c.name||'?').charAt(0).toUpperCase()}</div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className={`text-sm font-semibold ${th('text-slate-800','text-white')}`}>{c.name}</p>
+                          <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${c.type==='pj'?'bg-blue-50 text-blue-600 border-blue-200':'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>{c.type==='pj'?'PJ':'PF'}</span>
+                        </div>
+                        <div className={`flex flex-wrap gap-x-3 text-[10px] mt-0.5 ${th('text-slate-400','text-slate-500')}`}>
+                          {c.email&&<span className="flex items-center gap-1"><Ic n="mail" s={9}/>{c.email}</span>}
+                          {c.phone&&<span className="flex items-center gap-1"><Ic n="phone" s={9}/>{c.phone}</span>}
+                          {c.doc&&<span className="flex items-center gap-1"><Ic n="id" s={9}/>{c.doc}</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <button onClick={()=>{setEditContactId(c.id);setContactForm({name:c.name,type:c.type,phone:c.phone||'',email:c.email||'',doc:c.doc||''});setShowContactModal(true);}} className={`p-1.5 rounded-lg ${th('text-slate-400 hover:text-indigo-600 hover:bg-indigo-50','text-slate-500 hover:text-indigo-400')}`}><Ic n="pn" s={13}/></button>
+                      <button onClick={()=>setCDel({o:true,type:'contact',id:c.id,title:c.name,warn:''})} className={`p-1.5 rounded-lg ${th('text-slate-300 hover:text-rose-500 hover:bg-rose-50','text-slate-600 hover:text-rose-400')}`}><Ic n="tr" s={13}/></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══ TEAM ══ */}
+        {tab==='team'&&(
+          <div className="max-w-2xl space-y-5 ai pb-10">
+
+            {/* Info workspace */}
+            <div className={`p-4 rounded-xl border ${th('bg-indigo-50 border-indigo-200','bg-indigo-950/20 border-indigo-700/40')}`}>
+              <div className="flex items-start gap-3">
+                <Ic n="info" s={16} c="text-indigo-500 shrink-0 mt-0.5"/>
+                <div>
+                  <p className={`text-sm font-semibold ${th('text-indigo-800','text-indigo-300')}`}>Seu Workspace Pessoal</p>
+                  <p className={`text-xs mt-1 leading-relaxed ${th('text-indigo-700','text-indigo-400')}`}>
+                    Este é o seu espaço exclusivo. Apenas você tem acesso aos seus dados. O sistema de convites para membros adicionais está em desenvolvimento e será liberado em breve.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <p className={`text-xs font-medium ${th('text-slate-500','text-slate-400')}`}>Membros com acesso</p>
+              <div className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border cursor-not-allowed opacity-50 ${th('border-slate-200 text-slate-400','border-slate-700 text-slate-500')}`}>
+                <Ic n="up2" s={13}/> Convidar Membro
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${th('bg-amber-100 text-amber-700','bg-amber-900/40 text-amber-400')}`}>Em breve</span>
+              </div>
+            </div>
+
+            {/* Apenas o usuário real */}
+            <div className={`rounded-xl border overflow-hidden ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
+              <div className={`flex items-center justify-between p-4`}>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white text-sm shrink-0">
+                    {(user?.displayName||user?.email||'U').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className={`text-sm font-semibold truncate ${th('text-slate-800','text-white')}`}>{user?.displayName||'Usuário'}</p>
+                    <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+                  </div>
+                </div>
+                <span className={`text-[9px] font-bold uppercase px-2.5 py-1 rounded-lg border flex items-center gap-1 ${th('bg-indigo-50 text-indigo-600 border-indigo-200','bg-indigo-500/10 text-indigo-400 border-indigo-700')}`}>
+                  <Ic n="sh" s={9}/> Proprietário
+                </span>
+              </div>
+            </div>
+
+            {/* Roadmap de funcionalidades */}
+            <div className={`p-4 rounded-xl border ${th('bg-slate-50 border-slate-200','bg-slate-800/50 border-slate-700')}`}>
+              <p className={`text-xs font-semibold mb-3 flex items-center gap-2 ${th('text-slate-600','text-slate-300')}`}>
+                <Ic n="sp" s={13} c="text-amber-500"/> Próximas funcionalidades
+              </p>
+              <div className="space-y-2.5">
+                {[
+                  {l:'Convidar membros por email',s:'Em breve'},
+                  {l:'Níveis de acesso: Admin / Analista / Leitor',s:'Em breve'},
+                  {l:'Acesso restrito por empresa/cartão',s:'Em breve'},
+                  {l:'Outros usuários com workspaces próprios',s:'Planejado'},
+                ].map((r,i)=>(
+                  <div key={i} className="flex items-center justify-between">
+                    <p className={`text-xs ${th('text-slate-500','text-slate-400')}`}>{r.l}</p>
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md ${r.s==='Em breve'?th('bg-amber-50 text-amber-600 border border-amber-200','bg-amber-900/20 text-amber-400'):th('bg-slate-100 text-slate-500','bg-slate-700 text-slate-400')}`}>{r.s}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Níveis de acesso - referência */}
+            <div className={`p-4 rounded-xl border ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
+              <p className={`text-xs font-semibold mb-3 ${th('text-slate-600','text-slate-300')}`}>Níveis de acesso planejados</p>
+              <div className="space-y-2">
+                {[
+                  {role:'Proprietário',desc:'Acesso total — dono do workspace',c:'indigo'},
+                  {role:'Admin',desc:'Acesso total exceto excluir o workspace',c:'blue'},
+                  {role:'Analista',desc:'Lançar e editar transações, sem excluir',c:'slate'},
+                  {role:'Leitor',desc:'Somente visualização dos relatórios',c:'slate'},
+                ].map((r,i)=>(
+                  <div key={i} className="flex items-start gap-2.5">
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded border shrink-0 mt-0.5 ${r.c==='indigo'?th('bg-indigo-50 text-indigo-600 border-indigo-200','bg-indigo-500/10 text-indigo-400 border-indigo-700'):r.c==='blue'?th('bg-blue-50 text-blue-600 border-blue-200','bg-blue-500/10 text-blue-400 border-blue-700'):'bg-slate-100 text-slate-500 border-slate-200'}`}>{r.role}</span>
+                    <p className={`text-[10px] ${th('text-slate-500','text-slate-400')}`}>{r.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ SETTINGS ══ */}
+        {tab==='settings'&&(
+          <div className="space-y-8 ai pb-10 max-w-3xl">
+
+            {/* Contas & Unidades */}
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Contas & Unidades</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Gerencie suas empresas e cartões. Ao excluir, transações migram para "Conta Pessoal".</p>
+                </div>
+                <button onClick={()=>{setEditEntId(null);setEForm({name:'',type:'company'});setShowEntModal(true);}} className="flex items-center gap-2 bg-indigo-600 text-white px-3.5 py-2 rounded-xl text-xs font-semibold"><Ic n="plus" s={13}/> Nova Unidade</button>
+              </div>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                 {/* Card Conta Pessoal — editável */}
+                 <div className={`p-4 rounded-xl border card-hover ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
+                   <div className="flex items-center justify-between mb-3">
+                     <div className="flex items-center gap-2">
+                       <div className={`p-2 rounded-lg ${th('bg-slate-100 text-slate-500','bg-slate-800 text-slate-400')}`}><Ic n="wallet" s={16}/></div>
+                       <div>
+                         <p className="text-xs font-bold" style={{color:dark?'white':'#0f172a'}}>{personalAcc.name||'Conta Pessoal'}</p>
+                         <p className="text-[9px] text-slate-400 uppercase tracking-wide">{personalAcc.bank?`${personalAcc.bank}${personalAcc.agency?` · Ag. ${personalAcc.agency}`:''}`: 'Conta Padrão'}</p>
+                       </div>
+                     </div>
+                     <button onClick={()=>setShowPersonalModal(true)} className={`p-1.5 rounded-lg ${th('text-slate-400 hover:text-indigo-600 hover:bg-indigo-50','text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10')}`}><Ic n="pn" s={13}/></button>
+                   </div>
+                   <div className={`text-xl font-bold ${(unitBal['all']||0)>=0?th('text-slate-800','text-white'):'text-rose-500'}`} style={{fontFamily:'var(--font-display)'}}>
+                     {(unitBal['all']||0)<0?'- ':''}R$&nbsp;{fM(Math.abs(unitBal['all']||0))}
+                   </div>
+                   <div className="flex items-center gap-1 mt-1">
+                     <span className={`w-2 h-2 rounded-full ${(unitBal['all']||0)>=0?'bg-emerald-500':'bg-rose-500'}`}></span>
+                     <span className="text-[9px] text-slate-400">{(unitBal['all']||0)>=0?'Saldo positivo':'Saldo negativo'}</span>
+                   </div>
+                   {(personalAcc.accountType||personalAcc.doc)&&(
+                     <div className={`mt-2 pt-2 border-t flex flex-wrap gap-x-3 ${th('border-slate-100','border-slate-800')}`}>
+                       {personalAcc.accountType&&<span className="text-[9px] text-slate-400">{personalAcc.accountType==='corrente'?'Conta Corrente':personalAcc.accountType==='poupanca'?'Poupança':personalAcc.accountType==='investimento'?'Investimento':'Pagamento'}</span>}
+                       {personalAcc.doc&&<span className="text-[9px] text-slate-400">· {personalAcc.doc}</span>}
+                     </div>
+                   )}
+                 </div>
+                {entities.map(e=>{
+                  const bal=unitBal[e.id]||0;const healthy=bal>=0;
+                  return(
+                    <div key={e.id} className={`p-4 rounded-xl border card-hover ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className={`p-2 rounded-lg ${e.type==='company'?'bg-blue-50 text-blue-500':'bg-purple-50 text-purple-500'}`}><Ic n={e.type==='company'?'bd':'cd'} s={16}/></div>
+                          <div>
+                            <p className="text-xs font-bold" style={{color:dark?'white':'#0f172a'}}>{e.name}</p>
+                            <p className="text-[9px] text-slate-400 uppercase tracking-wide">{e.type==='company'?'Empresa':'Cartão / Conta'}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-1">
+                          <button onClick={()=>{setEditEntId(e.id);setEForm({name:e.name,type:e.type});setShowEntModal(true);}} className={`p-1.5 rounded-lg transition-all ${th('text-slate-400 hover:text-indigo-600 hover:bg-indigo-50','text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10')}`}><Ic n="pn" s={13}/></button>
+                          <button onClick={()=>setCDel({o:true,type:'entity',id:e.id,title:e.name,warn:'Transações vinculadas serão migradas para "Conta Pessoal". Esta ação não pode ser desfeita.'})} className={`p-1.5 rounded-lg transition-all ${th('text-slate-300 hover:text-rose-500 hover:bg-rose-50','text-slate-600 hover:text-rose-400 hover:bg-rose-500/10')}`}><Ic n="tr" s={13}/></button>
+                        </div>
+                      </div>
+                      <div className={`text-xl font-bold ${healthy?th('text-slate-800','text-white'):'text-rose-500'}`} style={{fontFamily:'var(--font-display)'}}>
+                        {bal<0?'- ':''}R$ {fM(Math.abs(bal))}
+                      </div>
+                      <div className="flex items-center gap-1 mt-1">
+                        <span className={`w-2 h-2 rounded-full ${healthy?'bg-emerald-500':'bg-rose-500'}`}></span>
+                        <span className="text-[9px] text-slate-400">{healthy?'Saldo positivo':'Saldo negativo'}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* Categorias */}
+            <section>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Categorias (Tags)</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Lançamentos migram para a categoria restante ao excluir. Você pode apagar todas as categorias.</p>
+                </div>
+                <button onClick={()=>{setEditCatId(null);setCForm({name:'',color:CAT_COLORS[cats.length%CAT_COLORS.length]});setShowCatModal(true);}} className="flex items-center gap-2 bg-indigo-600 text-white px-3.5 py-2 rounded-xl text-xs font-semibold"><Ic n="plus" s={13}/> Nova</button>
+              </div>
+              {/* Point 4: search */}
+              <div className="relative mb-3">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Ic n="srch" s={14}/></span>
+                <input type="text" value={catSearch} onChange={e=>setCatSearch(e.target.value)} placeholder="Pesquisar categorias..." className={`${inp} pl-9`}/>
+              </div>
+              <div className={`rounded-xl border overflow-hidden ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
+                {!filteredCats.length&&<div className="py-6 text-center text-xs text-slate-400">Nenhuma categoria encontrada.</div>}
+                {filteredCats.map((cat,i)=>{
+                  const count=txns.filter(t=>t.category===cat.name).length;
+                  return(
+                    <div key={cat.id} className={`flex items-center justify-between px-4 py-3 ${i<filteredCats.length-1?th('border-b border-slate-100','border-b border-slate-800'):''}`}>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-3 h-3 rounded-full shrink-0" style={{backgroundColor:cat.color}}></div>
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{backgroundColor:cat.color+'20'}}><Ic n="tag" s={13}/></div>
+                        <div className="min-w-0">
+                          <p className={`text-sm font-semibold ${th('text-slate-800','text-white')}`}>{cat.name}</p>
+                          <p className="text-[10px] text-slate-400">{count} lançamento(s)</p>
+                        </div>
+                      </div>
+                      {/* Point 5: no hex shown */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button onClick={()=>{setEditCatId(cat.id);setCForm({name:cat.name,color:cat.color});setShowCatModal(true);}} className={`p-1.5 rounded-lg ${th('text-slate-400 hover:text-indigo-600 hover:bg-indigo-50','text-slate-500 hover:text-indigo-400')}`}><Ic n="pn" s={13}/></button>
+                        <button onClick={()=>openCatDel(cat)} className={`p-1.5 rounded-lg ${th('text-slate-300 hover:text-rose-500 hover:bg-rose-50','text-slate-600 hover:text-rose-400')}`}><Ic n="tr" s={13}/></button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+        )}
+        </div>{/* end max-w */}
+      </main>
+
+      {/* ═══ MODALS ═══ */}
+
+      {/* Modal Transação */}
+      {showModal&&(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className={`rounded-2xl shadow-2xl w-full max-w-lg p-6 ai max-h-[95vh] overflow-y-auto ${th('bg-white','bg-slate-900')}`}>
+            <div className={`flex justify-between items-center mb-5 pb-4 border-b ${th('border-slate-100','border-slate-800')}`}>
+              <h3 className="text-base font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>{mMode==='create'?'Novo Lançamento':'Editar Lançamento'}</h3>
+              <button onClick={()=>setShowModal(false)} className={`p-1.5 rounded-lg ${th('hover:bg-slate-100 text-slate-500','hover:bg-slate-800 text-slate-400')}`}><Ic n="x" s={18}/></button>
+            </div>
+            <form onSubmit={hSv} className="space-y-4">
+              {/* Natureza toggle */}
+              <div className={`flex p-1 rounded-xl border gap-1 ${th('bg-slate-50 border-slate-200','bg-slate-950 border-slate-700')}`}>
+                <button type="button" onClick={()=>setForm({...form,type:'income'})} className={`flex-1 py-2.5 rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-1.5 ${form.type==='income'?'bg-emerald-500 text-white shadow-sm':'text-slate-500'}`}><Ic n="up" s={13}/> Receita</button>
+                <button type="button" onClick={()=>setForm({...form,type:'expense'})} className={`flex-1 py-2.5 rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-1.5 ${form.type==='expense'?'bg-rose-500 text-white shadow-sm':'text-slate-500'}`}><Ic n="dn" s={13}/> Despesa</button>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Valor (R$)</label><input required type="number" step="0.01" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})} className={inp} placeholder="0,00"/></div>
+                <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Data</label><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} className={inp}/></div>
+              </div>
+              <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Descrição</label><input required type="text" value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Ex: Faturamento Cliente X" className={inp}/></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Categoria</label>
+                  <select value={form.category} onChange={e=>setForm({...form,category:e.target.value})} className={inp}>
+                    {cats.map(c=><option key={c.id} value={c.name}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Unidade</label>
+                  <select value={form.entityId} onChange={e=>setForm({...form,entityId:e.target.value})} className={inp}>
+                    <option value="all">Conta Pessoal</option>{entities.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Status</label>
+                <select value={form.status} onChange={e=>setForm({...form,status:e.target.value})} className={inp}>
+                  <option value="paid">Efetivado — já ocorreu</option><option value="pending">Pendente — ainda vai ocorrer</option>
+                </select>
+              </div>
+              <div className={`flex items-center justify-between p-3.5 rounded-xl border ${th('bg-slate-50 border-slate-200','bg-slate-950 border-slate-700')}`}>
+                <div className="flex items-center gap-2.5"><Ic n="rp" s={16} c="text-indigo-500"/><div><p className="text-sm font-semibold" style={{color:dark?'white':'#0f172a'}}>Recorrência</p><p className="text-[10px] text-slate-400">Repetir automaticamente</p></div></div>
+                <button type="button" onClick={()=>setForm({...form,isRecurring:!form.isRecurring,status:!form.isRecurring?'pending':form.status})} className={`w-10 h-6 rounded-full transition-all relative ${form.isRecurring?'bg-indigo-600':'bg-slate-300'}`}>
+                  <span className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-all ${form.isRecurring?'translate-x-4':'translate-x-0'}`}></span>
+                </button>
+              </div>
+              {form.isRecurring&&(
+                <div className={`rounded-xl border overflow-hidden ${th('border-slate-200','border-slate-700')}`}>
+                  <div className={`px-3.5 pt-3 pb-2.5 border-b ${th('bg-slate-50 border-slate-200','bg-slate-950 border-slate-700')}`}>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-2">Tipo</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[{v:'installments',l:'Parcelado',d:'Número fixo de parcelas'},{v:'continuous',l:'Contínuo',d:'Até você cancelar'}].map(op=>(
+                        <button key={op.v} type="button" onClick={()=>setForm({...form,recurrenceType:op.v})} className={`p-2.5 rounded-xl text-left border transition-all ${form.recurrenceType===op.v?'border-indigo-500 bg-indigo-50 text-indigo-700':th('border-slate-200 text-slate-500','border-slate-700 text-slate-400')}`}>
+                          <p className="text-xs font-bold">{op.l}</p><p className="text-[9px] mt-0.5 opacity-70">{op.d}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className={`px-3.5 pt-3 pb-3.5 ${th('bg-slate-50','bg-slate-950')}`}>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-2">Frequência</label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {[{v:'weekly',l:'Semanal'},{v:'biweekly',l:'Quinzenal'},{v:'monthly',l:'Mensal'},{v:'quarterly',l:'Trimestral'},{v:'semiannual',l:'Semestral'},{v:'yearly',l:'Anual'}].map(op=>(
+                        <button key={op.v} type="button" onClick={()=>setForm({...form,recurrenceInterval:op.v})} className={`py-2 px-1 rounded-lg text-[10px] font-semibold border transition-all text-center ${form.recurrenceInterval===op.v?'border-indigo-500 bg-indigo-50 text-indigo-700':th('border-slate-200 text-slate-500','border-slate-700 text-slate-400')}`}>{op.l}</button>
+                      ))}
+                    </div>
+                    {form.recurrenceType==='installments'&&<div className="mt-3"><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Número de Parcelas</label><input type="number" min="2" max="360" value={form.installmentsCount||''} onChange={e=>setForm({...form,installmentsCount:e.target.value})} placeholder="Ex: 12" className={inp}/></div>}
+                    {form.recurrenceType==='continuous'&&<p className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-2 mt-3">⚠️ Modo contínuo exibido por até 24 meses. Exclua quando não precisar mais.</p>}
+                  </div>
+                </div>
+              )}
+              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-semibold text-sm shadow-sm shadow-indigo-500/30 transition-all">Salvar Lançamento</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Efetivar */}
+      {efMod.o&&(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className={`rounded-2xl shadow-xl w-full max-w-sm p-6 ai ${th('bg-white','bg-slate-900')}`}>
+            <div className={`flex justify-between items-center mb-4 pb-4 border-b ${th('border-slate-100','border-slate-800')}`}>
+              <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Confirmar Pagamento</h3>
+              <button onClick={()=>setEfMod({o:false,tx:null,date:''})} className={`p-1.5 rounded-lg ${th('hover:bg-slate-100','hover:bg-slate-800')}`}><Ic n="x" s={16}/></button>
+            </div>
+            <div className={`p-3 rounded-xl mb-4 ${th('bg-slate-50','bg-slate-800')}`}>
+              <p className={`text-sm font-semibold ${th('text-slate-700','text-slate-200')}`}>{efMod.tx?.description}</p>
+              <p className="text-sm font-bold text-indigo-500 mt-0.5">{efMod.tx&&fB(efMod.tx.type==='income'?efMod.tx.amount:-efMod.tx.amount)}</p>
+            </div>
+            <div className="mb-4">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1.5">Data do Pagamento</label>
+              <input type="date" value={efMod.date} onChange={e=>setEfMod({...efMod,date:e.target.value})} className={inp}/>
+              <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">⚠️ O lançamento aparecerá no mês da data informada acima — não necessariamente no mês de origem.</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={()=>setEfMod({o:false,tx:null,date:''})} className={`flex-1 py-2.5 rounded-xl text-xs font-semibold ${th('bg-slate-100 text-slate-600','bg-slate-800 text-slate-300')}`}>Cancelar</button>
+              <button onClick={confEf} className="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700">Confirmar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Entidade */}
+      {showEntModal&&(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className={`rounded-2xl shadow-xl w-full max-w-sm p-6 ai ${th('bg-white','bg-slate-900')}`}>
+            <div className={`flex justify-between items-center mb-4 pb-4 border-b ${th('border-slate-100','border-slate-800')}`}>
+              <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>{editEntId?'Editar Unidade':'Nova Unidade'}</h3>
+              <button onClick={()=>setShowEntModal(false)} className={`p-1.5 rounded-lg ${th('hover:bg-slate-100','hover:bg-slate-800')}`}><Ic n="x" s={16}/></button>
+            </div>
+            <form onSubmit={e=>{e.preventDefault();const id=editEntId||`ent-${Date.now()}`;sv('entities',id,{...eForm,id});setShowEntModal(false);setEditEntId(null);}} className="space-y-4">
+              <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Nome</label><input required type="text" value={eForm.name} onChange={e=>setEForm({...eForm,name:e.target.value})} className={inp} placeholder="Ex: Empresa Principal"/></div>
+              <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Tipo</label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={()=>setEForm({...eForm,type:'company'})} className={`flex-1 py-2.5 rounded-xl font-semibold text-xs border transition-all flex items-center justify-center gap-1.5 ${eForm.type==='company'?'bg-blue-500 text-white border-blue-600':'bg-slate-50 text-slate-500 border-slate-200'}`}><Ic n="bd" s={13}/> Empresa</button>
+                  <button type="button" onClick={()=>setEForm({...eForm,type:'card'})} className={`flex-1 py-2.5 rounded-xl font-semibold text-xs border transition-all flex items-center justify-center gap-1.5 ${eForm.type==='card'?'bg-purple-500 text-white border-purple-600':'bg-slate-50 text-slate-500 border-slate-200'}`}><Ic n="cd" s={13}/> Cartão</button>
+                </div>
+              </div>
+              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-xs font-semibold transition-all">Salvar Unidade</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Categoria */}
+      {showCatModal&&(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className={`rounded-2xl shadow-xl w-full max-w-sm p-6 ai ${th('bg-white','bg-slate-900')}`}>
+            <div className={`flex justify-between items-center mb-4 pb-4 border-b ${th('border-slate-100','border-slate-800')}`}>
+              <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>{editCatId?'Editar Categoria':'Nova Categoria'}</h3>
+              <button onClick={()=>setShowCatModal(false)} className={`p-1.5 rounded-lg ${th('hover:bg-slate-100','hover:bg-slate-800')}`}><Ic n="x" s={16}/></button>
+            </div>
+            <form onSubmit={e=>{
+              e.preventDefault();
+              const id=editCatId||`cat-${Date.now()}`;
+              sv('categories',id,{id,...cForm});
+              setShowCatModal(false);setEditCatId(null);
+            }} className="space-y-4">
+              <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Nome da Categoria</label><input required type="text" value={cForm.name} onChange={e=>setCForm({...cForm,name:e.target.value})} className={inp} placeholder="Ex: Marketing"/></div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-2">Cor da Categoria</label>
+                <div className="flex flex-wrap gap-2">
+                  {CAT_COLORS.map(c=>(
+                    <button key={c} type="button" onClick={()=>setCForm({...cForm,color:c})} className={`w-7 h-7 rounded-lg transition-all ${cForm.color===c?'ring-2 ring-offset-2 ring-indigo-500 scale-110':''}`} style={{backgroundColor:c}}/>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 mt-3">
+                  <div className="w-7 h-7 rounded-lg shrink-0" style={{backgroundColor:cForm.color}}></div>
+                  <input type="text" value={cForm.color} onChange={e=>setCForm({...cForm,color:e.target.value})} className={`${inp} font-mono text-xs`} placeholder="#000000"/>
+                </div>
+              </div>
+              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-xs font-semibold transition-all">Salvar Categoria</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Delete */}
+      {cDel.o&&(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className={`rounded-2xl shadow-xl w-full max-w-sm p-6 text-center ${th('bg-white','bg-slate-900')}`}>
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center mx-auto mb-4 ${th('bg-rose-50 text-rose-500','bg-rose-500/10 text-rose-400')}`}><Ic n="wn" s={22}/></div>
+            <h3 className="text-sm font-bold mb-1" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Confirmar Exclusão</h3>
+            <p className="text-xs text-slate-400 mb-2">{cDel.title}</p>
+            {cDel.warn&&<p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 p-2.5 rounded-lg mb-4">{cDel.warn}</p>}
+            {!cDel.warn&&<div className="mb-4"/>}
+            <div className="flex gap-2">
+              <button onClick={()=>setCDel({o:false,type:null,id:null,title:'',warn:''})} className={`flex-1 py-2.5 rounded-xl text-xs font-semibold ${th('bg-slate-100 text-slate-600','bg-slate-800 text-slate-300')}`}>Cancelar</button>
+              <button onClick={xDel} className="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-rose-600 text-white hover:bg-rose-700">Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Point 13: Transaction Detail Modal */}
+      {showTxDetail&&(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={()=>setShowTxDetail(null)}>
+          <div className={`rounded-2xl shadow-2xl w-full max-w-md p-6 ai ${th('bg-white','bg-slate-900')}`} onClick={e=>e.stopPropagation()}>
+            <div className={`flex justify-between items-center mb-4 pb-4 border-b ${th('border-slate-100','border-slate-800')}`}>
+              <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Detalhes do Lançamento</h3>
+              <button onClick={()=>setShowTxDetail(null)} className={`p-1.5 rounded-lg ${th('hover:bg-slate-100 text-slate-500','hover:bg-slate-800 text-slate-400')}`}><Ic n="x" s={18}/></button>
+            </div>
+            <div className={`flex items-center gap-3 p-4 rounded-xl mb-4 ${th('bg-slate-50','bg-slate-800')}`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${showTxDetail.type==='income'?th('bg-emerald-50 text-emerald-600','bg-emerald-500/10 text-emerald-400'):th('bg-rose-50 text-rose-500','bg-rose-500/10 text-rose-400')}`}><Ic n={showTxDetail.type==='income'?'up':'dn'} s={20}/></div>
+              <div>
+                <p className={`text-sm font-bold ${th('text-slate-700','text-slate-200')}`}>{showTxDetail.description}</p>
+                <p className={`text-xl font-bold ${showTxDetail.type==='income'?'text-emerald-500':'text-rose-500'}`} style={{fontFamily:'var(--font-display)'}}>{showTxDetail.type==='income'?'+ ':'- '}R$ {fM(showTxDetail.amount)}</p>
+              </div>
+            </div>
+            <div>
+              {[
+                {l:'Data',v:new Date(showTxDetail.date+'T12:00:00').toLocaleDateString('pt-BR')},
+                {l:'Status',v:showTxDetail.status==='paid'?'✅ Efetivado':'⏳ Pendente'},
+                {l:'Categoria',v:showTxDetail.category},
+                {l:'Conta / Unidade',v:entities.find(e=>e.id===showTxDetail.entityId)?.name||'Conta Pessoal'},
+                {l:'Tipo',v:(showTxDetail.isRecurring||showTxDetail.isVirtual)?'🔁 Recorrente':'Avulso'},
+                ...(showTxDetail.note?[{l:'Observação',v:showTxDetail.note}]:[]),
+              ].map((r,i)=>(
+                <div key={i} className={`flex justify-between items-center py-2.5 border-b last:border-0 ${th('border-slate-100','border-slate-800')}`}>
+                  <span className="text-xs font-medium text-slate-400">{r.l}</span>
+                  <span className={`text-xs font-semibold ${th('text-slate-700','text-slate-200')}`}>{r.v}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2 mt-5">
+              {showTxDetail.status==='pending'&&<button onClick={()=>{openEf(showTxDetail);setShowTxDetail(null);}} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold"><Ic n="ok" s={13}/> Efetivar</button>}
+              <button onClick={()=>{openE(showTxDetail);setShowTxDetail(null);}} className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold border ${th('border-slate-200 text-slate-600 hover:bg-slate-50','border-slate-700 text-slate-300 hover:bg-slate-800')}`}><Ic n="pn" s={13}/> Editar</button>
+              <button onClick={()=>{rDel(showTxDetail);setShowTxDetail(null);}} className="flex items-center justify-center px-3.5 py-2.5 rounded-xl bg-rose-50 text-rose-500 border border-rose-200 hover:bg-rose-100 text-xs font-semibold"><Ic n="tr" s={13}/></button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Contato */}
+      {showContactModal&&(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className={`rounded-2xl shadow-2xl w-full max-w-sm p-6 ai ${th('bg-white','bg-slate-900')}`}>
+            <div className={`flex justify-between items-center mb-4 pb-4 border-b ${th('border-slate-100','border-slate-800')}`}>
+              <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>{editContactId?'Editar Cadastro':'Novo Cadastro'}</h3>
+              <button onClick={()=>setShowContactModal(false)} className={`p-1.5 rounded-lg ${th('hover:bg-slate-100 text-slate-500','hover:bg-slate-800 text-slate-400')}`}><Ic n="x" s={16}/></button>
+            </div>
+            <form onSubmit={e=>{e.preventDefault();const id=editContactId||`cnt-${Date.now()}`;sv('contacts',id,{id,...contactForm});setShowContactModal(false);setEditContactId(null);}} className="space-y-3.5">
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1.5">Tipo de Pessoa</label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={()=>setContactForm({...contactForm,type:'pj'})} className={`flex-1 py-2 rounded-xl font-semibold text-xs border flex items-center justify-center gap-1.5 transition-all ${contactForm.type==='pj'?'bg-blue-500 text-white border-blue-600':th('bg-slate-50 text-slate-500 border-slate-200','bg-slate-800 text-slate-400 border-slate-700')}`}><Ic n="bd" s={12}/> Jurídica (PJ)</button>
+                  <button type="button" onClick={()=>setContactForm({...contactForm,type:'pf'})} className={`flex-1 py-2 rounded-xl font-semibold text-xs border flex items-center justify-center gap-1.5 transition-all ${contactForm.type==='pf'?'bg-emerald-500 text-white border-emerald-600':th('bg-slate-50 text-slate-500 border-slate-200','bg-slate-800 text-slate-400 border-slate-700')}`}><Ic n="user" s={12}/> Física (PF)</button>
+                </div>
+              </div>
+              <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">{contactForm.type==='pj'?'Nome / Nome Fantasia':'Nome Completo'}</label><input required type="text" value={contactForm.name} onChange={e=>setContactForm({...contactForm,name:e.target.value})} placeholder={contactForm.type==='pj'?'Ex: Empresa ABC Ltda.':'Ex: João da Silva'} className={inp}/></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Telefone</label><input type="tel" value={contactForm.phone} onChange={e=>setContactForm({...contactForm,phone:e.target.value})} placeholder="(00) 00000-0000" className={inp}/></div>
+                <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">E-mail</label><input type="email" value={contactForm.email} onChange={e=>setContactForm({...contactForm,email:e.target.value})} placeholder="email@exemplo.com" className={inp}/></div>
+              </div>
+              <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">{contactForm.type==='pj'?'CNPJ':'CPF'} <span className="normal-case font-normal text-slate-400">(opcional)</span></label><input type="text" value={contactForm.doc} onChange={e=>setContactForm({...contactForm,doc:e.target.value})} placeholder={contactForm.type==='pj'?'00.000.000/0001-00':'000.000.000-00'} className={inp}/></div>
+              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-xs font-semibold transition-all">Salvar Cadastro</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Conta Pessoal (Point 6) */}
+      {showPersonalModal&&(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className={`rounded-2xl shadow-2xl w-full max-w-md p-6 ai ${th('bg-white','bg-slate-900')}`}>
+            <div className={`flex justify-between items-center mb-4 pb-4 border-b ${th('border-slate-100','border-slate-800')}`}>
+              <div>
+                <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Editar Conta Pessoal</h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">Informações bancárias e dados da conta</p>
+              </div>
+              <button onClick={()=>setShowPersonalModal(false)} className={`p-1.5 rounded-lg ${th('hover:bg-slate-100 text-slate-500','hover:bg-slate-800 text-slate-400')}`}><Ic n="x" s={16}/></button>
+            </div>
+            <form onSubmit={e=>{e.preventDefault();sv('settings','personalAccount',personalAcc);setShowPersonalModal(false);}} className="space-y-3">
+              <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Nome da Conta</label>
+                <input type="text" value={personalAcc.name} onChange={e=>setPersonalAcc({...personalAcc,name:e.target.value})} placeholder="Ex: Minha Conta Principal" className={inp}/>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Banco</label>
+                  <input type="text" value={personalAcc.bank||''} onChange={e=>setPersonalAcc({...personalAcc,bank:e.target.value})} placeholder="Ex: Nubank, Itaú…" className={inp}/>
+                </div>
+                <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Agência</label>
+                  <input type="text" value={personalAcc.agency||''} onChange={e=>setPersonalAcc({...personalAcc,agency:e.target.value})} placeholder="Ex: 0001" className={inp}/>
+                </div>
+              </div>
+              <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Tipo de Conta</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[{v:'corrente',l:'Conta Corrente'},{v:'poupanca',l:'Poupança'},{v:'investimento',l:'Investimento'},{v:'pagamento',l:'Pagamento'}].map(op=>(
+                    <button key={op.v} type="button" onClick={()=>setPersonalAcc({...personalAcc,accountType:op.v})} className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-all text-left ${personalAcc.accountType===op.v?'border-indigo-500 bg-indigo-50 text-indigo-700':th('border-slate-200 text-slate-500','border-slate-700 text-slate-400')}`}>{op.l}</button>
+                  ))}
+                </div>
+              </div>
+              <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">CPF / CNPJ <span className="normal-case font-normal text-slate-400">(opcional)</span></label>
+                <input type="text" value={personalAcc.doc||''} onChange={e=>setPersonalAcc({...personalAcc,doc:e.target.value})} placeholder="000.000.000-00" className={inp}/>
+              </div>
+              <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Observações <span className="normal-case font-normal text-slate-400">(opcional)</span></label>
+                <input type="text" value={personalAcc.note||''} onChange={e=>setPersonalAcc({...personalAcc,note:e.target.value})} placeholder="Ex: conta usada para despesas pessoais" className={inp}/>
+              </div>
+              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-xs font-semibold transition-all mt-1">Salvar Informações</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal exclusão de categoria — com escolha de ação */}
+      {catDelModal.o&&(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className={`rounded-2xl shadow-2xl w-full max-w-md p-6 ai ${th('bg-white','bg-slate-900')}`}>
+            <div className={`flex justify-between items-center mb-4 pb-4 border-b ${th('border-slate-100','border-slate-800')}`}>
+              <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Excluir Categoria</h3>
+              <button onClick={()=>setCatDelModal({o:false,cat:null,count:0,total:0,action:'migrate',targetCat:''})} className={`p-1.5 rounded-lg ${th('hover:bg-slate-100 text-slate-500','hover:bg-slate-800 text-slate-400')}`}><Ic n="x" s={16}/></button>
+            </div>
+
+            {/* Info da categoria */}
+            <div className={`flex items-center gap-3 p-3.5 rounded-xl mb-4 ${th('bg-slate-50','bg-slate-800')}`}>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{backgroundColor:(catDelModal.cat?.color||'#94a3b8')+'25'}}>
+                <Ic n="tag" s={15}/>
+              </div>
+              <div className="flex-1">
+                <p className={`text-sm font-bold ${th('text-slate-800','text-white')}`}>{catDelModal.cat?.name}</p>
+                {catDelModal.count>0
+                  ? <p className="text-xs text-slate-400">{catDelModal.count} lançamento(s) · Total: R$ {fM(catDelModal.total)}</p>
+                  : <p className="text-xs text-emerald-500">Nenhum lançamento vinculado</p>
+                }
+              </div>
+            </div>
+
+            {/* Se não tem lançamentos, apenas confirma exclusão */}
+            {catDelModal.count===0?(
+              <div>
+                <p className={`text-xs mb-5 ${th('text-slate-500','text-slate-400')}`}>Esta categoria não tem lançamentos. Ela será removida permanentemente.</p>
+                <div className="flex gap-2">
+                  <button onClick={()=>setCatDelModal({o:false,cat:null,count:0,total:0,action:'migrate',targetCat:''})} className={`flex-1 py-2.5 rounded-xl text-xs font-semibold ${th('bg-slate-100 text-slate-600','bg-slate-800 text-slate-300')}`}>Cancelar</button>
+                  <button onClick={confCatDel} className="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-rose-600 text-white hover:bg-rose-700">Excluir</button>
+                </div>
+              </div>
+            ):(
+              <div className="space-y-4">
+                <p className={`text-xs ${th('text-slate-500','text-slate-400')}`}>Esta categoria tem lançamentos vinculados. Escolha o que fazer com eles:</p>
+
+                {/* Opção 1: Migrar */}
+                <div onClick={()=>setCatDelModal(s=>({...s,action:'migrate'}))} className={`p-3.5 rounded-xl border cursor-pointer transition-all ${catDelModal.action==='migrate'?th('border-indigo-500 bg-indigo-50','border-indigo-500 bg-indigo-500/10'):th('border-slate-200 hover:border-slate-300','border-slate-700 hover:border-slate-600')}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${catDelModal.action==='migrate'?'border-indigo-500':'border-slate-300'}`}>
+                      {catDelModal.action==='migrate'&&<div className="w-2 h-2 rounded-full bg-indigo-500"></div>}
+                    </div>
+                    <p className={`text-xs font-semibold ${th('text-slate-700','text-slate-200')}`}>Migrar lançamentos para outra categoria</p>
+                  </div>
+                  {catDelModal.action==='migrate'&&(
+                    <div className="mt-2" onClick={e=>e.stopPropagation()}>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1.5">Mover para</label>
+                      <select value={catDelModal.targetCat} onChange={e=>setCatDelModal(s=>({...s,targetCat:e.target.value}))} className={inp}>
+                        {cats.filter(c=>c.id!==catDelModal.cat?.id).map(c=>(
+                          <option key={c.id} value={c.name}>{c.name}</option>
+                        ))}
+                      </select>
+                      <p className="text-[10px] text-slate-400 mt-1.5">{catDelModal.count} lançamento(s) serão movidos para "{catDelModal.targetCat}".</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Opção 2: Excluir junto */}
+                <div onClick={()=>setCatDelModal(s=>({...s,action:'delete'}))} className={`p-3.5 rounded-xl border cursor-pointer transition-all ${catDelModal.action==='delete'?th('border-rose-500 bg-rose-50','border-rose-500 bg-rose-500/10'):th('border-slate-200 hover:border-slate-300','border-slate-700 hover:border-slate-600')}`}>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${catDelModal.action==='delete'?'border-rose-500':'border-slate-300'}`}>
+                      {catDelModal.action==='delete'&&<div className="w-2 h-2 rounded-full bg-rose-500"></div>}
+                    </div>
+                    <div>
+                      <p className={`text-xs font-semibold ${th('text-slate-700','text-slate-200')}`}>Excluir categoria e lançamentos</p>
+                      <p className="text-[10px] text-rose-500 mt-0.5">⚠️ {catDelModal.count} lançamento(s) · R$ {fM(catDelModal.total)} serão perdidos permanentemente</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button onClick={()=>setCatDelModal({o:false,cat:null,count:0,total:0,action:'migrate',targetCat:''})} className={`flex-1 py-2.5 rounded-xl text-xs font-semibold ${th('bg-slate-100 text-slate-600','bg-slate-800 text-slate-300')}`}>Cancelar</button>
+                  <button onClick={confCatDel} className={`flex-1 py-2.5 rounded-xl text-xs font-semibold text-white ${catDelModal.action==='delete'?'bg-rose-600 hover:bg-rose-700':'bg-indigo-600 hover:bg-indigo-700'}`}>
+                    {catDelModal.action==='delete'?'Excluir Tudo':'Migrar e Excluir'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Cloud status */}
+      <div className={`fixed bottom-4 right-4 flex items-center gap-2 px-3 py-2 rounded-xl shadow-lg border backdrop-blur-xl z-50 ${th('bg-white/90 border-slate-200','bg-slate-900/90 border-slate-700')}`}>
+        {cs==='connecting'&&<><Ic n="rf" s={11} c="asp text-slate-400"/><span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Conectando</span></>}
+        {cs==='syncing'&&<><Ic n="cl" s={11} c="apu text-indigo-500"/><span className="text-[9px] font-semibold uppercase tracking-wide text-indigo-500">Salvando</span></>}
+        {cs==='synced'&&<><Ic n="ok" s={11} c="text-emerald-500"/><span className="text-[9px] font-semibold uppercase tracking-wide text-emerald-500">Sincronizado</span></>}
+        {cs==='error'&&<><Ic n="wn" s={11} c="text-rose-500"/><span className="text-[9px] font-semibold uppercase tracking-wide text-rose-500">Erro</span></>}
+      </div>
+    </div>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
