@@ -314,24 +314,83 @@ const App=()=>{
 
   const doLogout=()=>{const{signOut}=window.__fb;signOut(window.__auth);};
   useEffect(()=>{
-    if(!user||!fbReady)return;
-    const db=window.__db;const{collection,onSnapshot,doc,setDoc}=window.__fb;const uid=user.uid;
+    if(!user||!fbReady||!workspaceOwnerUid)return;
+    const db=window.__db;const{collection,onSnapshot,doc,setDoc}=window.__fb;
+    const uid=workspaceOwnerUid;
     const u1=onSnapshot(collection(db,'ugrup',uid,'transactions'),snap=>{setTxns(snap.docs.map(d=>({id:d.id,...d.data()})));setCs('synced');},()=>setCs('error'));
     const u2=onSnapshot(collection(db,'ugrup',uid,'entities'),snap=>{
       if(!snap.empty)setEntities(snap.docs.map(d=>({id:d.id,...d.data()})));
-      else{const ie=[{id:'e-1',name:'Empresa Matriz',type:'company'},{id:'c-1',name:'Cartão Principal',type:'card'}];ie.forEach(e=>setDoc(doc(db,'ugrup',uid,'entities',e.id),e));}
+      else if(isOwner){const ie=[{id:'e-1',name:'Empresa Matriz',type:'company'},{id:'c-1',name:'Cartão Principal',type:'card'}];ie.forEach(e=>setDoc(doc(db,'ugrup',uid,'entities',e.id),e));}
     });
     const u3=onSnapshot(collection(db,'ugrup',uid,'categories'),snap=>{
       if(!snap.empty)setCats(snap.docs.map(d=>({id:d.id,...d.data()})));
-      else DEFAULT_CATS.forEach(c=>setDoc(doc(db,'ugrup',uid,'categories',c.id),c));
+      else if(isOwner)DEFAULT_CATS.forEach(c=>setDoc(doc(db,'ugrup',uid,'categories',c.id),c));
     });
     const u4=onSnapshot(collection(db,'ugrup',uid,'contacts'),snap=>{setContacts(snap.docs.map(d=>({id:d.id,...d.data()})));});
     const u5=onSnapshot(doc(db,'ugrup',uid,'settings','personalAccount'),snap=>{if(snap.exists())setPersonalAcc(d=>({...d,...snap.data()}));});
-    return()=>{u1();u2();u3();u4();u5();};
-  },[user,fbReady]);
+    let u6=()=>{};
+    if(isOwner){u6=onSnapshot(collection(db,'ugrup',uid,'members'),snap=>{setWorkspaceMembers(snap.docs.map(d=>({id:d.id,...d.data()})));});}
+    return()=>{u1();u2();u3();u4();u5();u6();};
+  },[user,fbReady,workspaceOwnerUid,isOwner]);
 
-  const sv=async(col,id,data)=>{if(!user||!fbReady)return;setCs('syncing');try{const{doc,setDoc}=window.__fb;await setDoc(doc(window.__db,'ugrup',user.uid,col,String(id)),data);setCs('synced');}catch{setCs('error');}};
-  const rm=async(col,id)=>{if(!user||!fbReady)return;setCs('syncing');try{const{doc,deleteDoc}=window.__fb;await deleteDoc(doc(window.__db,'ugrup',user.uid,col,String(id)));setCs('synced');}catch{setCs('error');}};
+  const sv=async(col,id,data)=>{if(!user||!fbReady||!workspaceOwnerUid)return;setCs('syncing');try{const{doc,setDoc}=window.__fb;await setDoc(doc(window.__db,'ugrup',workspaceOwnerUid,col,String(id)),data);setCs('synced');}catch{setCs('error');}};
+  const rm=async(col,id)=>{if(!user||!fbReady||!workspaceOwnerUid)return;setCs('syncing');try{const{doc,deleteDoc}=window.__fb;await deleteDoc(doc(window.__db,'ugrup',workspaceOwnerUid,col,String(id)));setCs('synced');}catch{setCs('error');}};
+
+  const genToken=()=>Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2);
+
+  const createInvite=async(e)=>{
+    e.preventDefault();setInviteLoading(true);
+    try{
+      const{doc,setDoc}=window.__fb;
+      const token=genToken();
+      await setDoc(doc(window.__db,'invites',token),{
+        ownerUid:user.uid,
+        ownerName:user.displayName||user.email,
+        ownerEmail:user.email,
+        role:inviteForm.role,
+        email:inviteForm.email,
+        status:'pending',
+        createdAt:new Date().toISOString()
+      });
+      const link=`${window.location.origin}${window.location.pathname}?invite=${token}`;
+      setInviteLink(link);
+    }catch(err){alert('Erro ao gerar convite.');}
+    setInviteLoading(false);
+  };
+
+  const acceptInvite=async()=>{
+    if(!inviteInfo||!user)return;
+    try{
+      const{doc,setDoc}=window.__fb;
+      const db=window.__db;
+      await setDoc(doc(db,'userProfiles',user.uid),{
+        workspaceOwnerUid:inviteInfo.ownerUid,
+        role:inviteInfo.role,
+        joinedAt:new Date().toISOString()
+      });
+      await setDoc(doc(db,'ugrup',inviteInfo.ownerUid,'members',user.uid),{
+        uid:user.uid,
+        email:user.email,
+        name:user.displayName||user.email,
+        role:inviteInfo.role,
+        joinedAt:new Date().toISOString()
+      });
+      await setDoc(doc(db,'invites',pendingInviteToken),{...inviteInfo,status:'accepted'});
+      setWorkspaceOwnerUid(inviteInfo.ownerUid);
+      setUserRole(inviteInfo.role);
+      setShowInviteAccept(false);
+      window.history.replaceState({},'',window.location.pathname);
+    }catch(err){alert('Erro ao aceitar convite.');}
+  };
+
+  const removeMember=async(memberUid)=>{
+    try{
+      const{doc,deleteDoc,setDoc}=window.__fb;
+      const db=window.__db;
+      await deleteDoc(doc(db,'ugrup',user.uid,'members',memberUid));
+      await setDoc(doc(db,'userProfiles',memberUid),{workspaceOwnerUid:null,role:'owner'});
+    }catch(err){alert('Erro ao remover membro.');}
+  };
 
   /* Expand recurrences */
   const exp=useMemo(()=>{
