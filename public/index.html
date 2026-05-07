@@ -239,6 +239,22 @@ const App=()=>{
   const[authErr,setAuthErr]=useState('');
   const[authLoading,setAuthLoading]=useState(false);
 
+  /* ── Workspace ── */
+  const[workspaceOwnerUid,setWorkspaceOwnerUid]=useState(null);
+  const[userRole,setUserRole]=useState('owner');
+  const[workspaceMembers,setWorkspaceMembers]=useState([]);
+  const[showInviteModal,setShowInviteModal]=useState(false);
+  const[inviteForm,setInviteForm]=useState({email:'',role:'analista'});
+  const[inviteLink,setInviteLink]=useState('');
+  const[inviteLoading,setInviteLoading]=useState(false);
+  const[pendingInviteToken]=useState(()=>new URLSearchParams(window.location.search).get('invite'));
+  const[showInviteAccept,setShowInviteAccept]=useState(false);
+  const[inviteInfo,setInviteInfo]=useState(null);
+
+  const isOwner=userRole==='owner';
+  const canWrite=['owner','admin','analista'].includes(userRole);
+  const canDelete=['owner','admin'].includes(userRole);
+
   useEffect(()=>{const i=()=>setFbReady(true);if(window.__auth)i();else window.addEventListener('fbReady',i);return()=>window.removeEventListener('fbReady',i);},[]);
   useEffect(()=>{
     if(!fbReady)return;
