@@ -380,7 +380,7 @@ const App=()=>{
       setUserRole(inviteInfo.role);
       setShowInviteAccept(false);
       window.history.replaceState({},'',window.location.pathname);
-    }catch(err){alert('Erro ao aceitar convite.');}
+    }catch(err){console.error('Erro ao aceitar convite:', err); alert('Erro ao aceitar convite: ' + err.message);}
   };
 
   const removeMember=async(memberUid)=>{
