@@ -15,7 +15,7 @@
   const cfg={apiKey:"AIzaSyA6GZbf7n8Rb8549pya_vgGV8oztQc33lI",authDomain:"ugroup-financas.firebaseapp.com",projectId:"ugroup-financas",storageBucket:"ugroup-financas.firebasestorage.app",messagingSenderId:"844815204870",appId:"1:844815204870:web:6c9f447eeb5af764307987"};
   const app=initializeApp(cfg);
   window.__auth=getAuth(app);window.__db=getFirestore(app);
-  window.__fb={collection,onSnapshot,doc,setDoc,deleteDoc,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,onAuthStateChanged,updateProfile};
+  window.__fb={collection,onSnapshot,doc,setDoc,deleteDoc,getDoc,addDoc,query,where,getDocs,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,onAuthStateChanged,updateProfile};
   window.dispatchEvent(new Event('fbReady'));
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
