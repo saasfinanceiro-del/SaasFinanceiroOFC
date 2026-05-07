@@ -258,9 +258,34 @@ const App=()=>{
   useEffect(()=>{const i=()=>setFbReady(true);if(window.__auth)i();else window.addEventListener('fbReady',i);return()=>window.removeEventListener('fbReady',i);},[]);
   useEffect(()=>{
     if(!fbReady)return;
-    const{onAuthStateChanged}=window.__fb;
-    return onAuthStateChanged(window.__auth,u=>{setUser(u);if(!u)setCs('idle');});
-  },[fbReady]);
+    const{onAuthStateChanged,getDoc,doc,setDoc}=window.__fb;
+    return onAuthStateChanged(window.__auth,async u=>{
+      setUser(u);
+      if(!u){setCs('idle');setWorkspaceOwnerUid(null);setUserRole('owner');return;}
+      const db=window.__db;
+      if(pendingInviteToken){
+        try{
+          const invSnap=await getDoc(doc(db,'invites',pendingInviteToken));
+          if(invSnap.exists()&&invSnap.data().status==='pending'){
+            const inv=invSnap.data();
+            setInviteInfo(inv);
+            setShowInviteAccept(true);
+            return;
+          }
+        }catch(e){}
+      }
+      try{
+        const profSnap=await getDoc(doc(db,'userProfiles',u.uid));
+        if(profSnap.exists()&&profSnap.data().workspaceOwnerUid){
+          setWorkspaceOwnerUid(profSnap.data().workspaceOwnerUid);
+          setUserRole(profSnap.data().role||'analista');
+        }else{
+          setWorkspaceOwnerUid(u.uid);
+          setUserRole('owner');
+        }
+      }catch(e){setWorkspaceOwnerUid(u.uid);setUserRole('owner');}
+    });
+  },[fbReady,pendingInviteToken]);
 
   const doLogin=e=>{
     e.preventDefault();setAuthErr('');setAuthLoading(true);
