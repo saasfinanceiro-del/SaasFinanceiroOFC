@@ -1150,76 +1150,59 @@ const App=()=>{
         {/* ══ TEAM ══ */}
         {tab==='team'&&(
           <div className="max-w-2xl space-y-5 ai pb-10">
-
-            {/* Info workspace */}
-            <div className={`p-4 rounded-xl border ${th('bg-indigo-50 border-indigo-200','bg-indigo-950/20 border-indigo-700/40')}`}>
+            <div className={`p-4 rounded-xl border ${isOwner?th('bg-indigo-50 border-indigo-200','bg-indigo-950/20 border-indigo-700/40'):th('bg-amber-50 border-amber-200','bg-amber-950/20 border-amber-700/40')}`}>
               <div className="flex items-start gap-3">
-                <Ic n="info" s={16} c="text-indigo-500 shrink-0 mt-0.5"/>
+                <Ic n={isOwner?'sh':'us'} s={16} c={isOwner?'text-indigo-500':'text-amber-500'}/>
                 <div>
-                  <p className={`text-sm font-semibold ${th('text-indigo-800','text-indigo-300')}`}>Seu Workspace Pessoal</p>
-                  <p className={`text-xs mt-1 leading-relaxed ${th('text-indigo-700','text-indigo-400')}`}>
-                    Este é o seu espaço exclusivo. Apenas você tem acesso aos seus dados. O sistema de convites para membros adicionais está em desenvolvimento e será liberado em breve.
-                  </p>
+                  <p className={`text-sm font-semibold ${isOwner?th('text-indigo-800','text-indigo-300'):th('text-amber-800','text-amber-300')}`}>{isOwner?'Seu Workspace':'Você é membro deste workspace'}</p>
+                  <p className={`text-xs mt-1 leading-relaxed ${isOwner?th('text-indigo-700','text-indigo-400'):th('text-amber-700','text-amber-400')}`}>{isOwner?`Gerencie os membros que têm acesso ao seu sistema. ${workspaceMembers.length} membro(s) ativos.`:`Você acessa este workspace como ${userRole}.`}</p>
                 </div>
               </div>
             </div>
-
-            <div className="flex justify-between items-center">
-              <p className={`text-xs font-medium ${th('text-slate-500','text-slate-400')}`}>Membros com acesso</p>
-              <div className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border cursor-not-allowed opacity-50 ${th('border-slate-200 text-slate-400','border-slate-700 text-slate-500')}`}>
-                <Ic n="up2" s={13}/> Convidar Membro
-                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${th('bg-amber-100 text-amber-700','bg-amber-900/40 text-amber-400')}`}>Em breve</span>
+            {isOwner&&(
+              <div className="flex justify-between items-center">
+                <p className={`text-xs font-medium ${th('text-slate-500','text-slate-400')}`}>{workspaceMembers.length} membro(s) com acesso</p>
+                <button onClick={()=>{setInviteForm({email:'',role:'analista'});setInviteLink('');setShowInviteModal(true);}} className="flex items-center gap-2 bg-indigo-600 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm">
+                  <Ic n="up2" s={13}/> Convidar Membro
+                </button>
               </div>
-            </div>
-
-            {/* Apenas o usuário real */}
+            )}
             <div className={`rounded-xl border overflow-hidden ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
-              <div className={`flex items-center justify-between p-4`}>
+              <div className={`flex items-center justify-between p-4 ${workspaceMembers.length>0?th('border-b border-slate-100','border-b border-slate-800'):''}`}>
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white text-sm shrink-0">
-                    {(user?.displayName||user?.email||'U').charAt(0).toUpperCase()}
-                  </div>
+                  <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white text-sm shrink-0">{(user?.displayName||user?.email||'U').charAt(0).toUpperCase()}</div>
                   <div className="min-w-0">
                     <p className={`text-sm font-semibold truncate ${th('text-slate-800','text-white')}`}>{user?.displayName||'Usuário'}</p>
                     <p className="text-xs text-slate-400 truncate">{user?.email}</p>
                   </div>
                 </div>
-                <span className={`text-[9px] font-bold uppercase px-2.5 py-1 rounded-lg border flex items-center gap-1 ${th('bg-indigo-50 text-indigo-600 border-indigo-200','bg-indigo-500/10 text-indigo-400 border-indigo-700')}`}>
-                  <Ic n="sh" s={9}/> Proprietário
-                </span>
+                <span className={`text-[9px] font-bold uppercase px-2.5 py-1 rounded-lg border flex items-center gap-1 ${th('bg-indigo-50 text-indigo-600 border-indigo-200','bg-indigo-500/10 text-indigo-400 border-indigo-700')}`}><Ic n="sh" s={9}/> {isOwner?'Proprietário':userRole.charAt(0).toUpperCase()+userRole.slice(1)}</span>
               </div>
-            </div>
-
-            {/* Roadmap de funcionalidades */}
-            <div className={`p-4 rounded-xl border ${th('bg-slate-50 border-slate-200','bg-slate-800/50 border-slate-700')}`}>
-              <p className={`text-xs font-semibold mb-3 flex items-center gap-2 ${th('text-slate-600','text-slate-300')}`}>
-                <Ic n="sp" s={13} c="text-amber-500"/> Próximas funcionalidades
-              </p>
-              <div className="space-y-2.5">
-                {[
-                  {l:'Convidar membros por email',s:'Em breve'},
-                  {l:'Níveis de acesso: Admin / Analista / Leitor',s:'Em breve'},
-                  {l:'Acesso restrito por empresa/cartão',s:'Em breve'},
-                  {l:'Outros usuários com workspaces próprios',s:'Planejado'},
-                ].map((r,i)=>(
-                  <div key={i} className="flex items-center justify-between">
-                    <p className={`text-xs ${th('text-slate-500','text-slate-400')}`}>{r.l}</p>
-                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md ${r.s==='Em breve'?th('bg-amber-50 text-amber-600 border border-amber-200','bg-amber-900/20 text-amber-400'):th('bg-slate-100 text-slate-500','bg-slate-700 text-slate-400')}`}>{r.s}</span>
+              {workspaceMembers.map((m,i)=>(
+                <div key={m.id} className={`flex items-center justify-between p-4 ${i<workspaceMembers.length-1?th('border-b border-slate-100','border-b border-slate-800'):''}`}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-slate-400 flex items-center justify-center font-bold text-white text-sm shrink-0">{(m.name||m.email||'?').charAt(0).toUpperCase()}</div>
+                    <div className="min-w-0">
+                      <p className={`text-sm font-semibold truncate ${th('text-slate-800','text-white')}`}>{m.name||m.email}</p>
+                      <p className="text-xs text-slate-400 truncate">{m.email}</p>
+                    </div>
                   </div>
-                ))}
-              </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[9px] font-bold uppercase px-2.5 py-1 rounded-lg border bg-slate-100 text-slate-600 border-slate-200">{m.role}</span>
+                    {isOwner&&<button onClick={()=>removeMember(m.id)} className={`p-1.5 rounded-lg ${th('text-slate-300 hover:text-rose-500 hover:bg-rose-50','text-slate-600 hover:text-rose-400')}`}><Ic n="tr" s={13}/></button>}
+                  </div>
+                </div>
+              ))}
+              {isOwner&&workspaceMembers.length===0&&(
+                <div className={`px-4 py-6 text-center ${th('border-t border-slate-100','border-t border-slate-800')}`}>
+                  <p className="text-xs text-slate-400">Nenhum membro convidado ainda.</p>
+                </div>
+              )}
             </div>
-
-            {/* Níveis de acesso - referência */}
             <div className={`p-4 rounded-xl border ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
-              <p className={`text-xs font-semibold mb-3 ${th('text-slate-600','text-slate-300')}`}>Níveis de acesso planejados</p>
+              <p className={`text-xs font-semibold mb-3 ${th('text-slate-600','text-slate-300')}`}>Níveis de acesso</p>
               <div className="space-y-2">
-                {[
-                  {role:'Proprietário',desc:'Acesso total — dono do workspace',c:'indigo'},
-                  {role:'Admin',desc:'Acesso total exceto excluir o workspace',c:'blue'},
-                  {role:'Analista',desc:'Lançar e editar transações, sem excluir',c:'slate'},
-                  {role:'Leitor',desc:'Somente visualização dos relatórios',c:'slate'},
-                ].map((r,i)=>(
+                {[{role:'Proprietário',desc:'Acesso total — dono do workspace',c:'indigo'},{role:'Admin',desc:'Acesso total exceto excluir o workspace',c:'blue'},{role:'Analista',desc:'Lançar e editar transações, sem excluir',c:'slate'},{role:'Leitor',desc:'Somente visualização dos relatórios',c:'slate'}].map((r,i)=>(
                   <div key={i} className="flex items-start gap-2.5">
                     <span className={`text-[9px] font-bold px-2 py-0.5 rounded border shrink-0 mt-0.5 ${r.c==='indigo'?th('bg-indigo-50 text-indigo-600 border-indigo-200','bg-indigo-500/10 text-indigo-400 border-indigo-700'):r.c==='blue'?th('bg-blue-50 text-blue-600 border-blue-200','bg-blue-500/10 text-blue-400 border-blue-700'):'bg-slate-100 text-slate-500 border-slate-200'}`}>{r.role}</span>
                     <p className={`text-[10px] ${th('text-slate-500','text-slate-400')}`}>{r.desc}</p>
