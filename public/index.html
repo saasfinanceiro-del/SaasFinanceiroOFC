@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>UGRUP — Sistema de Finanças</title>
+<title>Kontaê — Sistema de Finanças</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
@@ -19,11 +19,11 @@
   window.dispatchEvent(new Event('fbReady'));
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
 :root{
   --font-display:'Plus Jakarta Sans',sans-serif;
-  --font-body:'Inter',sans-serif;
+  --font-body:'Plus Jakarta Sans',sans-serif;
   --indigo:71 85 220;
   --emerald:16 185 129;
   --rose:244 63 94;
@@ -118,6 +118,7 @@ const Ic=({n,s=18,c=''})=>{
     user:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12"cy="7"r="4"/></svg>,
     mail:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>,
     phone:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.59 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 5.99 5.99l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>,
+    st:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
     id:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><rect x="2"y="4"width="20"height="16"rx="2"ry="2"/><circle cx="8.5"cy="10.5"r="2.5"/><polyline points="14 8 20 8"/><polyline points="14 12 20 12"/><polyline points="14 16 20 16"/><line x1="5"y1="16"x2="12"y2="16"/></svg>,
     info:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><circle cx="12"cy="12"r="10"/><line x1="12"y1="16"x2="12"y2="12"/><line x1="12"y1="8"x2="12.01"y2="8"/></svg>,
     bank:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><line x1="3"y1="22"x2="21"y2="22"/><line x1="6"y1="18"x2="6"y2="11"/><line x1="10"y1="18"x2="10"y2="11"/><line x1="14"y1="18"x2="14"y2="11"/><line x1="18"y1="18"x2="18"y2="11"/><polygon points="12 2 20 7 4 7"/></svg>,
@@ -235,7 +236,7 @@ const App=()=>{
   /* Firebase */
   /* Auth state */
   const[authScreen,setAuthScreen]=useState('login'); // 'login' | 'register'
-  const[authForm,setAuthForm]=useState({email:'',password:'',name:''});
+  const[authForm,setAuthForm]=useState({email:'',password:'',name:'',companyName:''});
   const[authErr,setAuthErr]=useState('');
   const[authLoading,setAuthLoading]=useState(false);
 
@@ -243,6 +244,7 @@ const App=()=>{
   const[workspaceOwnerUid,setWorkspaceOwnerUid]=useState(null);
   const[userRole,setUserRole]=useState('owner');
   const[workspaceMembers,setWorkspaceMembers]=useState([]);
+  const[companyName,setCompanyName]=useState('');
   const[showInviteModal,setShowInviteModal]=useState(false);
   const[inviteForm,setInviteForm]=useState({email:'',role:'analista'});
   const[inviteLink,setInviteLink]=useState('');
@@ -304,7 +306,10 @@ const App=()=>{
     if(authForm.password.length<6){setAuthErr('A senha deve ter no mínimo 6 caracteres.');setAuthLoading(false);return;}
     const{createUserWithEmailAndPassword,updateProfile}=window.__fb;
     createUserWithEmailAndPassword(window.__auth,authForm.email,authForm.password)
-      .then(cred=>updateProfile(cred.user,{displayName:authForm.name||'Usuário'}).then(()=>{setAuthForm({email:'',password:'',name:''});setAuthLoading(false);}))
+      .then(cred=>updateProfile(cred.user,{displayName:authForm.name||'Usuário'}).then(()=>{
+        if(authForm.companyName){try{const{doc:fd,setDoc:sd}=window.__fb;sd(fd(window.__db,'ugrup',cred.user.uid,'settings','profile'),{companyName:authForm.companyName});}catch(e){}}
+        setAuthForm({email:'',password:'',name:'',companyName:''});setAuthLoading(false);
+      }))
       .catch(err=>{
         setAuthLoading(false);
         const msgs={'auth/email-already-in-use':'Este e-mail já está cadastrado.','auth/invalid-email':'E-mail inválido.','auth/weak-password':'Senha muito fraca (mín. 6 caracteres).'};
@@ -328,9 +333,10 @@ const App=()=>{
     });
     const u4=onSnapshot(collection(db,'ugrup',uid,'contacts'),snap=>{setContacts(snap.docs.map(d=>({id:d.id,...d.data()})));});
     const u5=onSnapshot(doc(db,'ugrup',uid,'settings','personalAccount'),snap=>{if(snap.exists())setPersonalAcc(d=>({...d,...snap.data()}));});
+    const u5b=onSnapshot(doc(db,'ugrup',uid,'settings','profile'),snap=>{if(snap.exists()&&snap.data().companyName)setCompanyName(snap.data().companyName);});
     let u6=()=>{};
     if(isOwner){u6=onSnapshot(collection(db,'ugrup',uid,'members'),snap=>{setWorkspaceMembers(snap.docs.map(d=>({id:d.id,...d.data()})));});}
-    return()=>{u1();u2();u3();u4();u5();u6();};
+    return()=>{u1();u2();u3();u4();u5();u5b();u6();};
   },[user,fbReady,workspaceOwnerUid,isOwner]);
 
   const sv=async(col,id,data)=>{if(!user||!fbReady||!workspaceOwnerUid)return;setCs('syncing');try{const{doc,setDoc}=window.__fb;await setDoc(doc(window.__db,'ugrup',workspaceOwnerUid,col,String(id)),data);setCs('synced');}catch{setCs('error');}};
@@ -587,7 +593,7 @@ const App=()=>{
     const M=v=>'R$ '+fM(v);
     const totAmt=items.reduce((a,t)=>a+t.amount,0);
     const rows=[
-      R('EMPRESA','U GROUP'),
+      R('EMPRESA','Kontaê'),
       R('RELATORIO',reportName,'PERIODO',period,'EMISSAO',emitDate,'GERADO EM',now),
       R(''),
       R('========== RESUMO EXECUTIVO =========='),
@@ -616,11 +622,11 @@ const App=()=>{
       ...sorted.map((t,i)=>R(i+1,new Date(t.date+'T12:00:00').toLocaleDateString('pt-BR'),t.description,t.type==='income'?'RECEITA':'DESPESA',t.category,entities.find(e=>e.id===t.entityId)?.name||(personalAcc.name||'Conta Pessoal'),t.status==='paid'?'EFETIVADO':'PENDENTE',M(t.amount),(t.isVirtual||t.isRecurring)?'RECORRENTE':'AVULSO',t.note||'')),
       R(''),
       R('TOTAL LANCAMENTOS',items.length,'EFETIVADOS',paid.length,'PENDENTES',pend.length),
-      R('U GROUP - Sistema de Gestao Financeira'),
+      R('Kontaê - Sistema de Gestão Financeira'),
       R('Documento gerado automaticamente. Confira antes de usar para fins contabeis.'),
     ];
     const blob=new Blob(['\ufeff'+rows.join('\n')],{type:'text/csv;charset=utf-8;'});
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='UGRUP_'+reportName.replace(/ /g,'_')+'_'+tStr()+'.csv';a.click();
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Kontae_'+reportName.replace(/ /g,'_')+'_'+tStr()+'.csv';a.click();
   };
 
   /* Aging */
@@ -630,14 +636,14 @@ const App=()=>{
     return b.map(bk=>({...bk,total:bk.items.reduce((a,t)=>a+(t.type==='expense'?t.amount:-t.amount),0)}));
   },[ovItems]);
 
-  const inp=`w-full px-3.5 py-2.5 border rounded-xl font-medium text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${th('bg-slate-50 border-slate-200 text-slate-800 focus:bg-white','bg-slate-900 border-slate-700 text-slate-100')}`;
+  const inp=`w-full px-3.5 py-2.5 border rounded-xl font-medium text-sm outline-none focus:ring-2 focus:ring-[#1D6FA4] transition-all ${th('bg-slate-50 border-slate-200 text-slate-800 focus:bg-white','bg-slate-900 border-slate-700 text-slate-100')}`;
 
   /* TRow */
   const TRow=({t})=>{
     const diff=dDiff(t.date);const isOv=t.status==='pending'&&diff<0;const dL=Math.abs(diff);
     const cc=catColor(t.category);
     return(
-      <div onClick={()=>setShowTxDetail(t)} className={`px-4 py-3 rounded-xl border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2.5 cursor-pointer transition-all card-hover ${isOv?th('bg-rose-50 border-rose-200','bg-rose-950/20 border-rose-700/40'):th('bg-white border-slate-100 hover:border-indigo-200','bg-slate-900 border-slate-800 hover:border-indigo-700/40')}`}>
+      <div onClick={()=>setShowTxDetail(t)} className={`px-4 py-3 rounded-xl border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2.5 cursor-pointer transition-all card-hover ${isOv?th('bg-rose-50 border-rose-200','bg-rose-950/20 border-rose-700/40'):th('bg-white border-slate-100 hover:border-[#B3D9EC]','bg-slate-900 border-slate-800 hover:border-[#1D6FA4]/40')}`}>
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <div className="w-0.5 h-10 rounded-full shrink-0" style={{backgroundColor:cc}}></div>
           <div className={`w-9 h-9 rounded-xl shrink-0 flex items-center justify-center ${t.type==='income'?th('bg-emerald-50 text-emerald-600','bg-emerald-500/10 text-emerald-400'):isOv?th('bg-rose-100 text-rose-600','bg-rose-500/20 text-rose-400'):th('bg-slate-50 text-slate-500','bg-slate-800 text-slate-400')}`}>
@@ -664,8 +670,8 @@ const App=()=>{
             <span className={`text-sm font-bold ${t.type==='income'?th('text-emerald-600','text-emerald-400'):th('text-slate-800','text-white')}`}>{t.type==='income'?'+':'-'}&nbsp;R$&nbsp;{fM(t.amount)}</span>
           </div>
           <div className="flex gap-1 shrink-0">
-            {t.status==='pending'&&<button onClick={()=>openEf(t)} className={`p-1.5 rounded-lg transition-all ${th('bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white','bg-indigo-500/10 text-indigo-400 hover:bg-indigo-600 hover:text-white')}`}><Ic n="ok" s={13}/></button>}
-            <button onClick={()=>openE(t)} className={`p-1.5 rounded-lg border transition-all ${th('text-slate-400 hover:text-indigo-600 border-slate-100','text-slate-500 hover:text-indigo-400 border-slate-700')}`}><Ic n="pn" s={13}/></button>
+            {t.status==='pending'&&<button onClick={()=>openEf(t)} className={`p-1.5 rounded-lg transition-all ${th('bg-[#E8F2FA] text-[#1D6FA4] hover:bg-[#1D6FA4] hover:text-white','bg-[#1D6FA4]/10 text-[#4A9AC9] hover:bg-[#1D6FA4] hover:text-white')}`}><Ic n="ok" s={13}/></button>}
+            <button onClick={()=>openE(t)} className={`p-1.5 rounded-lg border transition-all ${th('text-slate-400 hover:text-[#1D6FA4] border-slate-100','text-slate-500 hover:text-[#4A9AC9] border-slate-700')}`}><Ic n="pn" s={13}/></button>
             <button onClick={()=>rDel(t)} className={`p-1.5 rounded-lg border transition-all ${th('text-slate-300 hover:text-rose-500 border-slate-100','text-slate-600 hover:text-rose-400 border-slate-700')}`}><Ic n="tr" s={13}/></button>
           </div>
         </div>
@@ -676,8 +682,8 @@ const App=()=>{
   /* FGroup */
   const FGroup=({label,items,color,badge})=>{
     if(!items.length)return null;
-    const cc={red:'text-rose-600 bg-rose-50 border-rose-200',amber:'text-amber-600 bg-amber-50 border-amber-200',blue:'text-indigo-600 bg-indigo-50 border-indigo-200'};
-    const dt={red:'bg-rose-500',amber:'bg-amber-500',blue:'bg-indigo-500'};
+    const cc={red:'text-rose-600 bg-rose-50 border-rose-200',amber:'text-amber-600 bg-amber-50 border-amber-200',blue:'text-[#1D6FA4] bg-[#E8F2FA] border-[#B3D9EC]'};
+    const dt={red:'bg-rose-500',amber:'bg-amber-500',blue:'bg-[#1D6FA4]'};
     const grpInc=items.filter(t=>t.type==='income').reduce((a,t)=>a+t.amount,0);
     const grpExp=items.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0);
     return(
@@ -704,7 +710,7 @@ const App=()=>{
     {id:'forecast',n:'ch',l:'Previsão de Caixa'},
     {id:'contacts',n:'contacts',l:'Pessoas & Empresas'},
     {id:'team',n:'us',l:'Equipe'},
-    {id:'settings',n:'cg',l:'Configurações'},
+    {id:'planos',n:'st',l:'Planos'},{id:'settings',n:'cg',l:'Configurações'},
   ];
 
   /* ── RENDER ── */
@@ -717,17 +723,17 @@ const App=()=>{
         <div className={`w-full max-w-sm rounded-2xl shadow-xl p-8 ${th('bg-white','bg-slate-900')}`}>
           {/* Logo */}
           <div className="flex flex-col items-center mb-8">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 mb-3">
-              <span className="text-white font-bold text-xl" style={{fontFamily:'var(--font-display)'}}>UG</span>
+            <div className="w-14 h-14 rounded-2xl bg-[#F0B429] flex items-center justify-center shadow-lg shadow-[#F0B429]/40 mb-3">
+              <span style={{fontFamily:"DM Mono,monospace",fontWeight:300,fontSize:"16px",color:"#1A3A5C",letterSpacing:"-1px"}}>R$<span style={{fontSize:"10px",verticalAlign:"middle"}}>〜</span></span>
             </div>
-            <p className="text-base font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>U GROUP</p>
-            <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">Sistema de Gestão Financeira</p>
+            <p className="text-base font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Kontaê</p>
+            <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">Sistema de Gestão Financeira para PMEs</p>
           </div>
 
           {/* Tabs */}
           <div className={`flex p-1 rounded-xl border mb-6 gap-1 ${th('bg-slate-50 border-slate-200','bg-slate-950 border-slate-700')}`}>
-            <button onClick={()=>{setAuthScreen('login');setAuthErr('');}} className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${isLogin?'bg-indigo-600 text-white shadow-sm':th('text-slate-500','text-slate-400')}`}>Entrar</button>
-            <button onClick={()=>{setAuthScreen('register');setAuthErr('');}} className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${!isLogin?'bg-indigo-600 text-white shadow-sm':th('text-slate-500','text-slate-400')}`}>Criar Conta</button>
+            <button onClick={()=>{setAuthScreen('login');setAuthErr('');}} className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${isLogin?'bg-[#1D6FA4] text-white shadow-sm':th('text-slate-500','text-slate-400')}`}>Entrar</button>
+            <button onClick={()=>{setAuthScreen('register');setAuthErr('');}} className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${!isLogin?'bg-[#1D6FA4] text-white shadow-sm':th('text-slate-500','text-slate-400')}`}>Criar Conta</button>
           </div>
 
           <form onSubmit={isLogin?doLogin:doRegister} className="space-y-3.5">
@@ -735,6 +741,12 @@ const App=()=>{
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Seu Nome</label>
                 <input required={!isLogin} type="text" value={authForm.name} onChange={e=>setAuthForm({...authForm,name:e.target.value})} placeholder="Ex: Davi" className={inp}/>
+              </div>
+            )}
+            {!isLogin&&(
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Nome da Empresa</label>
+                <input type="text" value={authForm.companyName||''} onChange={e=>setAuthForm({...authForm,companyName:e.target.value})} placeholder="Ex: Minha Empresa Ltda" className={inp}/>
               </div>
             )}
             <div>
@@ -751,14 +763,14 @@ const App=()=>{
                 <p className="text-xs text-rose-700 leading-relaxed">{authErr}</p>
               </div>
             )}
-            <button type="submit" disabled={authLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2">
+            <button type="submit" disabled={authLoading} className="w-full bg-[#1D6FA4] hover:bg-[#155D8A] disabled:opacity-60 text-white py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2">
               {authLoading?<><Ic n="rf" s={14} c="asp"/>{isLogin?'Entrando…':'Criando conta…'}</>:<>{isLogin?'Entrar':'Criar Conta'}</>}
             </button>
           </form>
 
           <p className="text-center text-[10px] text-slate-400 mt-5">
             {isLogin?'Ainda não tem conta?':'Já tem uma conta?'}{' '}
-            <button onClick={()=>{setAuthScreen(isLogin?'register':'login');setAuthErr('');}} className="text-indigo-500 font-semibold hover:underline">{isLogin?'Criar conta gratuita':'Entrar agora'}</button>
+            <button onClick={()=>{setAuthScreen(isLogin?'register':'login');setAuthErr('');}} className="text-[#1D6FA4] font-semibold hover:underline">{isLogin?'Criar conta gratuita':'Entrar agora'}</button>
           </p>
 
           <div className="flex justify-center mt-4">
@@ -766,7 +778,7 @@ const App=()=>{
           </div>
           <div className="flex items-center justify-center gap-1.5 mt-5 pt-4 border-t border-slate-100">
             <span className="text-[9px] text-slate-300 uppercase tracking-widest">Powered by</span>
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">U Group</span>
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Kontaê</span>
           </div>
         </div>
       </div>
@@ -780,11 +792,11 @@ const App=()=>{
       <aside className={`w-16 lg:w-64 flex flex-col shrink-0 z-30 ${th('bg-white border-r border-slate-200','bg-slate-900 border-r border-slate-800')}`}>
         {/* Logo */}
          <div className={`flex items-center gap-3 px-4 py-5 border-b ${th('border-slate-100','border-slate-800')}`}>
-           <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0 shadow-md shadow-indigo-500/30">
-             <span className="text-white font-bold text-xs" style={{fontFamily:'var(--font-display)'}}>UG</span>
+           <div className="w-8 h-8 rounded-lg bg-[#F0B429] flex items-center justify-center shrink-0 shadow-md shadow-[#F0B429]/30">
+             <span style={{fontFamily:"DM Mono,monospace",fontWeight:300,fontSize:"10px",color:"#1A3A5C"}}>R$</span>
            </div>
            <div className="hidden lg:block">
-             <div className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>U GROUP</div>
+             <div className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Kontaê</div>
              <div className="text-[9px] font-medium text-slate-400 uppercase tracking-widest mt-0.5">Sistema de Finanças</div>
            </div>
          </div>
@@ -806,8 +818,8 @@ const App=()=>{
         <nav className="flex-1 px-3 py-4 space-y-0.5">
           <div className="hidden lg:block text-[9px] font-bold uppercase tracking-widest text-slate-400 px-2 mb-2">Menu Principal</div>
           {navItems.map(it=>(
-            <button key={it.id} onClick={()=>setTab(it.id)} className={`w-full flex items-center justify-center lg:justify-start gap-3 px-2.5 py-2.5 rounded-lg transition-all text-sm ${tab===it.id?th('bg-indigo-50 text-indigo-700 font-semibold','bg-indigo-500/15 text-indigo-400 font-semibold'):th('text-slate-500 hover:bg-slate-50 hover:text-slate-700 font-medium','text-slate-400 hover:bg-slate-800 hover:text-slate-200 font-medium')}`}>
-              <div className={`flex items-center justify-center w-7 h-7 rounded-md transition-all ${tab===it.id?th('bg-indigo-100','bg-indigo-500/20'):''}`}>
+            <button key={it.id} onClick={()=>setTab(it.id)} className={`w-full flex items-center justify-center lg:justify-start gap-3 px-2.5 py-2.5 rounded-lg transition-all text-sm ${tab===it.id?th('bg-[#E8F2FA] text-[#155D8A] font-semibold','bg-[#1D6FA4]/15 text-[#4A9AC9] font-semibold'):th('text-slate-500 hover:bg-slate-50 hover:text-slate-700 font-medium','text-slate-400 hover:bg-slate-800 hover:text-slate-200 font-medium')}`}>
+              <div className={`flex items-center justify-center w-7 h-7 rounded-md transition-all ${tab===it.id?th('bg-[#E8F2FA]','bg-[#1D6FA4]/20'):''}`}>
                 <Ic n={it.n} s={16}/>
               </div>
               <span className="hidden lg:block">{it.l}</span>
@@ -819,7 +831,7 @@ const App=()=>{
         {/* Rodapé sidebar */}
          <div className={`px-3 py-4 border-t space-y-1 ${th('border-slate-100','border-slate-800')}`}>
            <div className={`hidden lg:flex items-center gap-2 px-2 py-2 rounded-lg mb-1 ${th('bg-slate-50','bg-slate-800/50')}`}>
-             <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0 text-white text-xs font-bold">{(user?.displayName||user?.email||'U').charAt(0).toUpperCase()}</div>
+             <div className="w-7 h-7 rounded-lg bg-[#1D6FA4] flex items-center justify-center shrink-0 text-white text-xs font-bold">{(user?.displayName||user?.email||'U').charAt(0).toUpperCase()}</div>
              <div className="flex-1 min-w-0">
                <p className={`text-[11px] font-semibold truncate ${th('text-slate-700','text-slate-200')}`}>{user?.displayName||'Usuário'}</p>
                <p className="text-[9px] text-slate-400 truncate">{user?.email}</p>
@@ -833,7 +845,7 @@ const App=()=>{
            <button onClick={doLogout} className={`lg:hidden w-full flex items-center justify-center px-2.5 py-2 rounded-lg text-xs font-medium transition-all ${th('text-rose-400 hover:bg-rose-50','text-rose-400 hover:bg-rose-500/10')}`} title="Sair">
              <Ic n="x" s={14}/>
            </button>
-           <button onClick={openC} className="w-full flex items-center justify-center lg:justify-start gap-2.5 px-2.5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-all shadow-sm shadow-indigo-500/30">
+           <button onClick={openC} className="w-full flex items-center justify-center lg:justify-start gap-2.5 px-2.5 py-2.5 rounded-lg bg-[#1D6FA4] hover:bg-[#155D8A] text-white text-xs font-semibold transition-all shadow-sm shadow-[#1D6FA4]/30">
              <Ic n="plus" s={15}/>
              <span className="hidden lg:block">Novo Lançamento</span>
            </button>
@@ -847,15 +859,15 @@ const App=()=>{
         <div className={`sticky top-0 z-20 px-6 py-4 flex items-center justify-between border-b ${th('bg-white/80 border-slate-200 backdrop-blur-sm','bg-slate-900/80 border-slate-800 backdrop-blur-sm')}`}>
           <div>
             <h1 className="text-lg font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>
-              {tab==='dashboard'?'Fluxo de Operações':tab==='forecast'?'Previsão de Caixa':tab==='contacts'?'Pessoas & Empresas':tab==='team'?'Gestão de Equipe':'Configurações'}
+              {tab==='dashboard'?'Fluxo de Operações':tab==='forecast'?'Previsão de Caixa':tab==='contacts'?'Pessoas & Empresas':tab==='team'?'Gestão de Equipe':tab==='planos'?'Planos':'Configurações'}
             </h1>
-            <p className={`text-xs mt-0.5 font-medium ${th('text-slate-400','text-slate-500')}`}>{tab==='dashboard'?`${MN[vd.getMonth()]} ${vd.getFullYear()} · Acompanhamento em tempo real`:tab==='forecast'?'Liquidez, vencimentos e inadimplência integrados':''}</p>
+            <p className={`text-xs mt-0.5 font-medium ${th('text-slate-400','text-slate-500')}`}>{tab==='dashboard'?`${MN[vd.getMonth()]} ${vd.getFullYear()}${companyName?' · '+companyName:' · Acompanhamento em tempo real'}`:tab==='forecast'?'Liquidez, vencimentos e inadimplência integrados':''}</p>
           </div>
           {/* Entity filter */}
           {(tab==='dashboard'||tab==='forecast')&&(
             <div className={`hidden md:flex items-center p-1 rounded-xl border gap-0.5 ${th('bg-slate-50 border-slate-200','bg-slate-800 border-slate-700')}`}>
-              <button onClick={()=>setEnt('all')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${ent==='all'?th('bg-white text-indigo-600 shadow-sm','bg-slate-700 text-indigo-400'):th('text-slate-500','text-slate-400')}`}><Ic n="ly" s={12}/> Todos</button>
-              {entities.map(e=><button key={e.id} onClick={()=>setEnt(e.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${ent===e.id?th('bg-white text-indigo-600 shadow-sm','bg-slate-700 text-indigo-400'):th('text-slate-500','text-slate-400')}`}><Ic n={e.type==='company'?'bd':'cd'} s={12}/>{e.name}</button>)}
+              <button onClick={()=>setEnt('all')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${ent==='all'?th('bg-white text-[#1D6FA4] shadow-sm','bg-slate-700 text-[#4A9AC9]'):th('text-slate-500','text-slate-400')}`}><Ic n="ly" s={12}/> Todos</button>
+              {entities.map(e=><button key={e.id} onClick={()=>setEnt(e.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${ent===e.id?th('bg-white text-[#1D6FA4] shadow-sm','bg-slate-700 text-[#4A9AC9]'):th('text-slate-500','text-slate-400')}`}><Ic n={e.type==='company'?'bd':'cd'} s={12}/>{e.name}</button>)}
             </div>
           )}
         </div>
@@ -870,7 +882,7 @@ const App=()=>{
               <div className={`flex items-center gap-2 p-2 rounded-xl border flex-1 ${th('bg-white border-slate-200','bg-slate-900 border-slate-800')}`}>
                 <button onClick={()=>setVd(new Date(vd.getFullYear(),vd.getMonth()-1,1))} className={`p-1.5 rounded-lg transition-all ${th('hover:bg-slate-100 text-slate-400','hover:bg-slate-800 text-slate-500')}`}><Ic n="lf" s={18}/></button>
                 <div className="text-center flex-1">
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-indigo-500">Período</p>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-[#1D6FA4]">Período</p>
                   <p className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>{MN[vd.getMonth()]} {vd.getFullYear()}</p>
                 </div>
                 <button onClick={()=>setVd(new Date(vd.getFullYear(),vd.getMonth()+1,1))} className={`p-1.5 rounded-lg transition-all ${th('hover:bg-slate-100 text-slate-400','hover:bg-slate-800 text-slate-500')}`}><Ic n="rt" s={18}/></button>
@@ -886,9 +898,9 @@ const App=()=>{
                 {l:'Saldo Realizado',v:dSt.bal,c:'indigo',ic:'ac',sub:'Receitas − Despesas'},
                 {l:'Fechamento Estimado',v:dSt.exp,dark:true,ic:'sp',sub:'Incluindo pendentes'},
               ].map((k,i)=>(
-                <div key={i} className={`p-4 rounded-xl border flex flex-col gap-3 card-hover ${k.dark?'bg-indigo-600 text-white border-indigo-500':th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
+                <div key={i} className={`p-4 rounded-xl border flex flex-col gap-3 card-hover ${k.dark?'bg-[#1D6FA4] text-white border-[#1D6FA4]':th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
                   <div className="flex items-center justify-between">
-                    <p className={`text-[10px] font-semibold uppercase tracking-wide ${k.dark?'text-indigo-200':th('text-slate-500','text-slate-400')}`}>{k.l}</p>
+                    <p className={`text-[10px] font-semibold uppercase tracking-wide ${k.dark?'text-[#B3D9EC]':th('text-slate-500','text-slate-400')}`}>{k.l}</p>
                     <div className={`p-1.5 rounded-lg ${k.dark?'bg-white/15':th(`bg-${k.c}-50 text-${k.c}-500`,`bg-${k.c}-500/10 text-${k.c}-400`)}`}><Ic n={k.ic} s={13}/></div>
                   </div>
                   <div>
@@ -896,7 +908,7 @@ const App=()=>{
                       <span className={`text-xs font-semibold opacity-60`}>{k.v<0?'- ':''}R$</span>
                       <span className="text-xl font-bold" style={{fontFamily:'var(--font-display)'}}>{fM(Math.abs(k.v))}</span>
                     </div>
-                    <p className={`text-[10px] mt-1 ${k.dark?'text-indigo-200':th('text-slate-400','text-slate-500')}`}>{k.sub}</p>
+                    <p className={`text-[10px] mt-1 ${k.dark?'text-[#B3D9EC]':th('text-slate-400','text-slate-500')}`}>{k.sub}</p>
                   </div>
                 </div>
               ))}
@@ -941,15 +953,15 @@ const App=()=>{
               {/* FIX 2/4: Tag chips filter + text search */}
               <div className="mb-3 space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <h3 className={`text-sm font-semibold flex items-center gap-2 ${th('text-slate-700','text-slate-200')}`}><Ic n="fi" s={16} c="text-indigo-500"/> Lançamentos do Período <span className={`text-[10px] font-normal ${th('text-slate-400','text-slate-500')}`}>({fdItems.length})</span></h3>
+                  <h3 className={`text-sm font-semibold flex items-center gap-2 ${th('text-slate-700','text-slate-200')}`}><Ic n="fi" s={16} c="text-[#1D6FA4]"/> Lançamentos do Período <span className={`text-[10px] font-normal ${th('text-slate-400','text-slate-500')}`}>({fdItems.length})</span></h3>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Ic n="srch" s={13}/></span>
-                    <input type="text" value={srch} onChange={e=>setSrch(e.target.value)} placeholder="Buscar descrição…" className={`pl-8 pr-3 py-2 text-xs font-medium rounded-xl outline-none border focus:ring-2 focus:ring-indigo-500 ${th('bg-white border-slate-200','bg-slate-900 border-slate-700 text-white')}`}/>
+                    <input type="text" value={srch} onChange={e=>setSrch(e.target.value)} placeholder="Buscar descrição…" className={`pl-8 pr-3 py-2 text-xs font-medium rounded-xl outline-none border focus:ring-2 focus:ring-[#1D6FA4] ${th('bg-white border-slate-200','bg-slate-900 border-slate-700 text-white')}`}/>
                   </div>
                 </div>
                 {/* Tag filter chips */}
                 <div className="flex flex-wrap gap-1.5">
-                  <button onClick={()=>setCatFilter('')} className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all ${!catFilter?th('bg-indigo-600 text-white border-indigo-600','bg-indigo-600 text-white border-indigo-600'):th('bg-white text-slate-500 border-slate-200 hover:border-indigo-300','bg-slate-900 text-slate-400 border-slate-700')}`}>
+                  <button onClick={()=>setCatFilter('')} className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all ${!catFilter?th('bg-[#1D6FA4] text-white border-[#1D6FA4]','bg-[#1D6FA4] text-white border-[#1D6FA4]'):th('bg-white text-slate-500 border-slate-200 hover:border-[#7BBDDB]','bg-slate-900 text-slate-400 border-slate-700')}`}>
                     Todas
                   </button>
                   {[...new Set(dItems.map(t=>t.category))].sort().map(cat=>{
@@ -964,7 +976,7 @@ const App=()=>{
                   })}
                 </div>
                 {(srch||catFilter)&&(
-                  <div className={`flex items-center justify-between text-[10px] px-3 py-1.5 rounded-lg ${th('bg-indigo-50 text-indigo-700','bg-indigo-500/10 text-indigo-300')}`}>
+                  <div className={`flex items-center justify-between text-[10px] px-3 py-1.5 rounded-lg ${th('bg-[#E8F2FA] text-[#155D8A]','bg-[#1D6FA4]/10 text-[#7BBDDB]')}`}>
                     <span>{fdItems.length} resultado(s) {catFilter?`na tag "${catFilter}"`:''}{srch?` com "${srch}"`:''}</span>
                     <button onClick={()=>{setSrch('');setCatFilter('');}} className="font-bold underline">Limpar</button>
                   </div>
@@ -994,7 +1006,7 @@ const App=()=>{
             {/* Filtro período */}
             <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl border ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
               <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-indigo-600 rounded-lg text-white"><Ic n="ca" s={16}/></div>
+                <div className="p-2 bg-[#1D6FA4] rounded-lg text-white"><Ic n="ca" s={16}/></div>
                 <div>
                   <p className="text-sm font-semibold" style={{color:dark?'white':'#0f172a'}}>Horizonte de Projeção</p>
                   <p className="text-[10px] text-slate-400">Inadimplência sempre visível</p>
@@ -1002,7 +1014,7 @@ const App=()=>{
               </div>
               <div className={`flex gap-1 p-1 rounded-lg border sh ${th('bg-slate-50 border-slate-200','bg-slate-950 border-slate-700')}`}>
                 {['7','15','30','90','180','all'].map(p=>(
-                  <button key={p} onClick={()=>setPf(p)} className={`px-3 py-1.5 rounded-md text-[10px] font-semibold uppercase tracking-wide transition-all ${pf===p?'bg-indigo-600 text-white shadow-sm':th('text-slate-500 hover:bg-white hover:text-slate-700','text-slate-400 hover:bg-slate-800')}`}>
+                  <button key={p} onClick={()=>setPf(p)} className={`px-3 py-1.5 rounded-md text-[10px] font-semibold uppercase tracking-wide transition-all ${pf===p?'bg-[#1D6FA4] text-white shadow-sm':th('text-slate-500 hover:bg-white hover:text-slate-700','text-slate-400 hover:bg-slate-800')}`}>
                     {p==='all'?'Total':p==='180'?'6M':p==='90'?'3M':`${p}d`}
                   </button>
                 ))}
@@ -1010,11 +1022,11 @@ const App=()=>{
             </div>
 
             {/* KPIs projeção */}
-            <div className="bg-indigo-900 p-5 rounded-2xl shadow-xl relative overflow-hidden">
+            <div className="bg-[#1A3A5C] p-5 rounded-2xl shadow-xl relative overflow-hidden">
               <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4 mb-5">
                 <div>
                   <p className="text-white font-bold text-lg" style={{fontFamily:'var(--font-display)'}}>Balanço Projetado</p>
-                  <p className="text-indigo-300 text-xs">Capital + entradas previstas − saídas previstas</p>
+                  <p className="text-[#7BBDDB] text-xs">Capital + entradas previstas − saídas previstas</p>
                 </div>
                 <button onClick={()=>hExp(fAll,`Projecao_${pf==='all'?'Total':pf+'d'}`,`Projeção ${pf==='all'?'Total':pf+' dias'}`)} className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 px-3.5 py-2 rounded-lg text-xs font-semibold text-white transition-all shrink-0"><Ic n="dl" s={13}/> Exportar CSV</button>
               </div>
@@ -1032,9 +1044,9 @@ const App=()=>{
                   </div>
                 ))}
                 <div className="col-span-2 lg:col-span-1 p-3.5 rounded-xl bg-white shadow-xl">
-                  <p className="text-[8px] font-bold uppercase tracking-widest text-indigo-400 mb-1.5">Liquidez Projetada</p>
-                  <p className={`text-base font-bold whitespace-nowrap ${projFin<0?'text-rose-600':'text-indigo-700'}`} style={{fontFamily:'var(--font-display)'}}>{projFin<0?'- ':''}R$&nbsp;{fM(Math.abs(projFin))}</p>
-                  <p className="text-[9px] mt-1 text-indigo-400">Capital ± projeção</p>
+                  <p className="text-[8px] font-bold uppercase tracking-widest text-[#4A9AC9] mb-1.5">Liquidez Projetada</p>
+                  <p className={`text-base font-bold whitespace-nowrap ${projFin<0?'text-rose-600':'text-[#155D8A]'}`} style={{fontFamily:'var(--font-display)'}}>{projFin<0?'- ':''}R$&nbsp;{fM(Math.abs(projFin))}</p>
+                  <p className="text-[9px] mt-1 text-[#4A9AC9]">Capital ± projeção</p>
                 </div>
               </div>
               <div className="absolute -right-16 -bottom-16 w-64 h-64 bg-white/5 rounded-full blur-3xl pointer-events-none"></div>
@@ -1070,7 +1082,7 @@ const App=()=>{
             {/* FIX 6: Compromissos com sumário por tipo */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <p className={`text-sm font-semibold flex items-center gap-2 ${th('text-slate-700','text-slate-200')}`}><Ic n="ck" s={15} c="text-indigo-500"/> Compromissos <span className={`text-[10px] font-normal ml-1 ${th('text-slate-400','text-slate-500')}`}>{fAll.length} total</span></p>
+                <p className={`text-sm font-semibold flex items-center gap-2 ${th('text-slate-700','text-slate-200')}`}><Ic n="ck" s={15} c="text-[#1D6FA4]"/> Compromissos <span className={`text-[10px] font-normal ml-1 ${th('text-slate-400','text-slate-500')}`}>{fAll.length} total</span></p>
               </div>
               {/* Summary cards */}
               {fAll.length>0&&(
@@ -1108,14 +1120,14 @@ const App=()=>{
           <div className="space-y-4 ai pb-10 max-w-3xl">
             <div className="flex justify-between items-center">
               <p className={`text-xs font-medium ${th('text-slate-500','text-slate-400')}`}>{contacts.length} cadastro(s)</p>
-              <button onClick={()=>{setEditContactId(null);setContactForm({name:'',type:'pj',phone:'',email:'',doc:''});setShowContactModal(true);}} className="flex items-center gap-2 bg-indigo-600 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm"><Ic n="plus" s={13}/> Novo Cadastro</button>
+              <button onClick={()=>{setEditContactId(null);setContactForm({name:'',type:'pj',phone:'',email:'',doc:''});setShowContactModal(true);}} className="flex items-center gap-2 bg-[#1D6FA4] text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm"><Ic n="plus" s={13}/> Novo Cadastro</button>
             </div>
             {!contacts.length&&(
               <div className={`text-center py-16 rounded-xl border-2 border-dashed ${th('border-slate-200','border-slate-800')}`}>
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3 ${th('bg-slate-100 text-slate-400','bg-slate-800 text-slate-500')}`}><Ic n="contacts" s={22}/></div>
                 <p className={`text-sm font-semibold ${th('text-slate-600','text-slate-300')}`}>Nenhum contato cadastrado</p>
                 <p className="text-xs text-slate-400 mt-1">Cadastre pessoas físicas ou jurídicas para vincular aos lançamentos.</p>
-                <button onClick={()=>{setEditContactId(null);setContactForm({name:'',type:'pj',phone:'',email:'',doc:''});setShowContactModal(true);}} className="mt-4 flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-semibold mx-auto"><Ic n="plus" s={13}/> Adicionar primeiro contato</button>
+                <button onClick={()=>{setEditContactId(null);setContactForm({name:'',type:'pj',phone:'',email:'',doc:''});setShowContactModal(true);}} className="mt-4 flex items-center gap-2 bg-[#1D6FA4] text-white px-4 py-2 rounded-xl text-xs font-semibold mx-auto"><Ic n="plus" s={13}/> Adicionar primeiro contato</button>
               </div>
             )}
             {contacts.length>0&&(
@@ -1137,7 +1149,7 @@ const App=()=>{
                       </div>
                     </div>
                     <div className="flex gap-1 shrink-0">
-                      <button onClick={()=>{setEditContactId(c.id);setContactForm({name:c.name,type:c.type,phone:c.phone||'',email:c.email||'',doc:c.doc||''});setShowContactModal(true);}} className={`p-1.5 rounded-lg ${th('text-slate-400 hover:text-indigo-600 hover:bg-indigo-50','text-slate-500 hover:text-indigo-400')}`}><Ic n="pn" s={13}/></button>
+                      <button onClick={()=>{setEditContactId(c.id);setContactForm({name:c.name,type:c.type,phone:c.phone||'',email:c.email||'',doc:c.doc||''});setShowContactModal(true);}} className={`p-1.5 rounded-lg ${th('text-slate-400 hover:text-[#1D6FA4] hover:bg-[#E8F2FA]','text-slate-500 hover:text-[#4A9AC9]')}`}><Ic n="pn" s={13}/></button>
                       <button onClick={()=>setCDel({o:true,type:'contact',id:c.id,title:c.name,warn:''})} className={`p-1.5 rounded-lg ${th('text-slate-300 hover:text-rose-500 hover:bg-rose-50','text-slate-600 hover:text-rose-400')}`}><Ic n="tr" s={13}/></button>
                     </div>
                   </div>
@@ -1150,19 +1162,19 @@ const App=()=>{
         {/* ══ TEAM ══ */}
         {tab==='team'&&(
           <div className="max-w-2xl space-y-5 ai pb-10">
-            <div className={`p-4 rounded-xl border ${isOwner?th('bg-indigo-50 border-indigo-200','bg-indigo-950/20 border-indigo-700/40'):th('bg-amber-50 border-amber-200','bg-amber-950/20 border-amber-700/40')}`}>
+            <div className={`p-4 rounded-xl border ${isOwner?th('bg-[#E8F2FA] border-[#B3D9EC]','bg-indigo-950/20 border-[#1D6FA4]/40'):th('bg-amber-50 border-amber-200','bg-amber-950/20 border-amber-700/40')}`}>
               <div className="flex items-start gap-3">
-                <Ic n={isOwner?'sh':'us'} s={16} c={isOwner?'text-indigo-500':'text-amber-500'}/>
+                <Ic n={isOwner?'sh':'us'} s={16} c={isOwner?'text-[#1D6FA4]':'text-amber-500'}/>
                 <div>
-                  <p className={`text-sm font-semibold ${isOwner?th('text-indigo-800','text-indigo-300'):th('text-amber-800','text-amber-300')}`}>{isOwner?'Seu Workspace':'Você é membro deste workspace'}</p>
-                  <p className={`text-xs mt-1 leading-relaxed ${isOwner?th('text-indigo-700','text-indigo-400'):th('text-amber-700','text-amber-400')}`}>{isOwner?`Gerencie os membros que têm acesso ao seu sistema. ${workspaceMembers.length} membro(s) ativos.`:`Você acessa este workspace como ${userRole}.`}</p>
+                  <p className={`text-sm font-semibold ${isOwner?th('text-indigo-800','text-[#7BBDDB]'):th('text-amber-800','text-amber-300')}`}>{isOwner?'Seu Workspace':'Você é membro deste workspace'}</p>
+                  <p className={`text-xs mt-1 leading-relaxed ${isOwner?th('text-[#155D8A]','text-[#4A9AC9]'):th('text-amber-700','text-amber-400')}`}>{isOwner?`Gerencie os membros que têm acesso ao seu sistema. ${workspaceMembers.length} membro(s) ativos.`:`Você acessa este workspace como ${userRole}.`}</p>
                 </div>
               </div>
             </div>
             {isOwner&&(
               <div className="flex justify-between items-center">
                 <p className={`text-xs font-medium ${th('text-slate-500','text-slate-400')}`}>{workspaceMembers.length} membro(s) com acesso</p>
-                <button onClick={()=>{setInviteForm({email:'',role:'analista'});setInviteLink('');setShowInviteModal(true);}} className="flex items-center gap-2 bg-indigo-600 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm">
+                <button onClick={()=>{setInviteForm({email:'',role:'analista'});setInviteLink('');setShowInviteModal(true);}} className="flex items-center gap-2 bg-[#1D6FA4] text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm">
                   <Ic n="up2" s={13}/> Convidar Membro
                 </button>
               </div>
@@ -1170,13 +1182,13 @@ const App=()=>{
             <div className={`rounded-xl border overflow-hidden ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
               <div className={`flex items-center justify-between p-4 ${workspaceMembers.length>0?th('border-b border-slate-100','border-b border-slate-800'):''}`}>
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white text-sm shrink-0">{(user?.displayName||user?.email||'U').charAt(0).toUpperCase()}</div>
+                  <div className="w-9 h-9 rounded-xl bg-[#1D6FA4] flex items-center justify-center font-bold text-white text-sm shrink-0">{(user?.displayName||user?.email||'U').charAt(0).toUpperCase()}</div>
                   <div className="min-w-0">
                     <p className={`text-sm font-semibold truncate ${th('text-slate-800','text-white')}`}>{user?.displayName||'Usuário'}</p>
                     <p className="text-xs text-slate-400 truncate">{user?.email}</p>
                   </div>
                 </div>
-                <span className={`text-[9px] font-bold uppercase px-2.5 py-1 rounded-lg border flex items-center gap-1 ${th('bg-indigo-50 text-indigo-600 border-indigo-200','bg-indigo-500/10 text-indigo-400 border-indigo-700')}`}><Ic n="sh" s={9}/> {isOwner?'Proprietário':userRole.charAt(0).toUpperCase()+userRole.slice(1)}</span>
+                <span className={`text-[9px] font-bold uppercase px-2.5 py-1 rounded-lg border flex items-center gap-1 ${th('bg-[#E8F2FA] text-[#1D6FA4] border-[#B3D9EC]','bg-[#1D6FA4]/10 text-[#4A9AC9] border-indigo-700')}`}><Ic n="sh" s={9}/> {isOwner?'Proprietário':userRole.charAt(0).toUpperCase()+userRole.slice(1)}</span>
               </div>
               {workspaceMembers.map((m,i)=>(
                 <div key={m.id} className={`flex items-center justify-between p-4 ${i<workspaceMembers.length-1?th('border-b border-slate-100','border-b border-slate-800'):''}`}>
@@ -1204,7 +1216,7 @@ const App=()=>{
               <div className="space-y-2">
                 {[{role:'Proprietário',desc:'Acesso total — dono do workspace',c:'indigo'},{role:'Admin',desc:'Acesso total exceto excluir o workspace',c:'blue'},{role:'Analista',desc:'Lançar e editar transações, sem excluir',c:'slate'},{role:'Leitor',desc:'Somente visualização dos relatórios',c:'slate'}].map((r,i)=>(
                   <div key={i} className="flex items-start gap-2.5">
-                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded border shrink-0 mt-0.5 ${r.c==='indigo'?th('bg-indigo-50 text-indigo-600 border-indigo-200','bg-indigo-500/10 text-indigo-400 border-indigo-700'):r.c==='blue'?th('bg-blue-50 text-blue-600 border-blue-200','bg-blue-500/10 text-blue-400 border-blue-700'):'bg-slate-100 text-slate-500 border-slate-200'}`}>{r.role}</span>
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded border shrink-0 mt-0.5 ${r.c==='indigo'?th('bg-[#E8F2FA] text-[#1D6FA4] border-[#B3D9EC]','bg-[#1D6FA4]/10 text-[#4A9AC9] border-indigo-700'):r.c==='blue'?th('bg-blue-50 text-blue-600 border-blue-200','bg-blue-500/10 text-blue-400 border-blue-700'):'bg-slate-100 text-slate-500 border-slate-200'}`}>{r.role}</span>
                     <p className={`text-[10px] ${th('text-slate-500','text-slate-400')}`}>{r.desc}</p>
                   </div>
                 ))}
@@ -1214,6 +1226,57 @@ const App=()=>{
         )}
 
         {/* ══ SETTINGS ══ */}
+        {tab==='planos'&&(
+          <div className="space-y-6 ai pb-10 max-w-3xl">
+            <div className={`p-6 rounded-2xl border ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
+              <h2 className="text-base font-bold mb-1" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Planos Disponíveis</h2>
+              <p className={`text-xs mb-6 ${th('text-slate-400','text-slate-500')}`}>Escolha o plano ideal para o seu negócio. O pagamento é realizado externamente — após confirmação, o acesso é liberado automaticamente.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Free Plan */}
+                <div className={`relative p-5 rounded-xl border-2 flex flex-col gap-3 ${th('bg-[#E8F2FA] border-[#1D6FA4]/30','bg-[#1D6FA4]/10 border-[#1D6FA4]/40')}`}>
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-bold uppercase tracking-widest ${th('text-[#1D6FA4]','text-[#4A9AC9]')}`}>Plano Free</span>
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${th('bg-white text-slate-500','bg-slate-800 text-slate-400')}`}>Ativo</span>
+                  </div>
+                  <div>
+                    <span className="text-2xl font-bold" style={{fontFamily:'DM Mono,monospace',color:dark?'white':'#1C1C2E'}}>R$ 0</span>
+                    <span className={`text-xs ml-1 ${th('text-slate-400','text-slate-500')}`}>/mês</span>
+                  </div>
+                  <ul className={`space-y-1.5 text-xs ${th('text-slate-600','text-slate-400')}`}>
+                    <li className="flex items-center gap-1.5"><span className="text-[#1DB87D]">✓</span> Acesso básico ao sistema</li>
+                    <li className="flex items-center gap-1.5"><span className="text-[#1DB87D]">✓</span> Até 50 lançamentos/mês</li>
+                    <li className="flex items-center gap-1.5"><span className="text-[#1DB87D]">✓</span> 1 unidade / empresa</li>
+                    <li className="flex items-center gap-1.5"><span className="text-slate-400">–</span> Sem acesso à equipe</li>
+                    <li className="flex items-center gap-1.5"><span className="text-slate-400">–</span> Sem relatórios avançados</li>
+                  </ul>
+                  <div className={`mt-auto pt-3 text-center text-[10px] font-semibold ${th('text-slate-400','text-slate-500')}`}>Plano atual</div>
+                </div>
+                {/* Annual Plan */}
+                <div className={`relative p-5 rounded-xl border-2 flex flex-col gap-3 ${th('bg-[#FEF9EC] border-[#F0B429]','bg-[#F0B429]/10 border-[#F0B429]/50')}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-widest text-[#B8860B]">Plano Anual</span>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F0B429] text-[#1A3A5C]">Premium</span>
+                  </div>
+                  <div>
+                    <span className="text-2xl font-bold" style={{fontFamily:'DM Mono,monospace',color:dark?'#F0B429':'#1A3A5C'}}>R$ X</span>
+                    <span className={`text-xs ml-1 ${th('text-slate-400','text-slate-500')}`}>/ano</span>
+                  </div>
+                  <ul className={`space-y-1.5 text-xs ${th('text-slate-600','text-slate-400')}`}>
+                    <li className="flex items-center gap-1.5"><span className="text-[#1DB87D]">✓</span> Tudo do plano Free</li>
+                    <li className="flex items-center gap-1.5"><span className="text-[#1DB87D]">✓</span> Lançamentos ilimitados</li>
+                    <li className="flex items-center gap-1.5"><span className="text-[#1DB87D]">✓</span> Múltiplas empresas/cartões</li>
+                    <li className="flex items-center gap-1.5"><span className="text-[#1DB87D]">✓</span> Gestão de equipe completa</li>
+                    <li className="flex items-center gap-1.5"><span className="text-[#1DB87D]">✓</span> Relatórios e exportações</li>
+                  </ul>
+                  <div className="mt-auto pt-3">
+                    <p className={`text-center text-[10px] ${th('text-slate-400','text-slate-500')}`}>Pagamento externo — fale conosco para contratar</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {tab==='settings'&&(
           <div className="space-y-8 ai pb-10 max-w-3xl">
 
@@ -1224,7 +1287,7 @@ const App=()=>{
                   <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Contas & Unidades</h3>
                   <p className="text-xs text-slate-400 mt-0.5">Gerencie suas empresas e cartões. Ao excluir, transações migram para "Conta Pessoal".</p>
                 </div>
-                <button onClick={()=>{setEditEntId(null);setEForm({name:'',type:'company'});setShowEntModal(true);}} className="flex items-center gap-2 bg-indigo-600 text-white px-3.5 py-2 rounded-xl text-xs font-semibold"><Ic n="plus" s={13}/> Nova Unidade</button>
+                <button onClick={()=>{setEditEntId(null);setEForm({name:'',type:'company'});setShowEntModal(true);}} className="flex items-center gap-2 bg-[#1D6FA4] text-white px-3.5 py-2 rounded-xl text-xs font-semibold"><Ic n="plus" s={13}/> Nova Unidade</button>
               </div>
                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                  {/* Card Conta Pessoal — editável */}
@@ -1237,7 +1300,7 @@ const App=()=>{
                          <p className="text-[9px] text-slate-400 uppercase tracking-wide">{personalAcc.bank?`${personalAcc.bank}${personalAcc.agency?` · Ag. ${personalAcc.agency}`:''}`: 'Conta Padrão'}</p>
                        </div>
                      </div>
-                     <button onClick={()=>setShowPersonalModal(true)} className={`p-1.5 rounded-lg ${th('text-slate-400 hover:text-indigo-600 hover:bg-indigo-50','text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10')}`}><Ic n="pn" s={13}/></button>
+                     <button onClick={()=>setShowPersonalModal(true)} className={`p-1.5 rounded-lg ${th('text-slate-400 hover:text-[#1D6FA4] hover:bg-[#E8F2FA]','text-slate-500 hover:text-[#4A9AC9] hover:bg-[#1D6FA4]/10')}`}><Ic n="pn" s={13}/></button>
                    </div>
                    <div className={`text-xl font-bold ${(unitBal['all']||0)>=0?th('text-slate-800','text-white'):'text-rose-500'}`} style={{fontFamily:'var(--font-display)'}}>
                      {(unitBal['all']||0)<0?'- ':''}R$&nbsp;{fM(Math.abs(unitBal['all']||0))}
@@ -1266,7 +1329,7 @@ const App=()=>{
                           </div>
                         </div>
                         <div className="flex gap-1">
-                          <button onClick={()=>{setEditEntId(e.id);setEForm({name:e.name,type:e.type});setShowEntModal(true);}} className={`p-1.5 rounded-lg transition-all ${th('text-slate-400 hover:text-indigo-600 hover:bg-indigo-50','text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10')}`}><Ic n="pn" s={13}/></button>
+                          <button onClick={()=>{setEditEntId(e.id);setEForm({name:e.name,type:e.type});setShowEntModal(true);}} className={`p-1.5 rounded-lg transition-all ${th('text-slate-400 hover:text-[#1D6FA4] hover:bg-[#E8F2FA]','text-slate-500 hover:text-[#4A9AC9] hover:bg-[#1D6FA4]/10')}`}><Ic n="pn" s={13}/></button>
                           <button onClick={()=>setCDel({o:true,type:'entity',id:e.id,title:e.name,warn:'Transações vinculadas serão migradas para "Conta Pessoal". Esta ação não pode ser desfeita.'})} className={`p-1.5 rounded-lg transition-all ${th('text-slate-300 hover:text-rose-500 hover:bg-rose-50','text-slate-600 hover:text-rose-400 hover:bg-rose-500/10')}`}><Ic n="tr" s={13}/></button>
                         </div>
                       </div>
@@ -1290,7 +1353,7 @@ const App=()=>{
                   <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Categorias (Tags)</h3>
                   <p className="text-xs text-slate-400 mt-0.5">Lançamentos migram para a categoria restante ao excluir. Você pode apagar todas as categorias.</p>
                 </div>
-                <button onClick={()=>{setEditCatId(null);setCForm({name:'',color:CAT_COLORS[cats.length%CAT_COLORS.length]});setShowCatModal(true);}} className="flex items-center gap-2 bg-indigo-600 text-white px-3.5 py-2 rounded-xl text-xs font-semibold"><Ic n="plus" s={13}/> Nova</button>
+                <button onClick={()=>{setEditCatId(null);setCForm({name:'',color:CAT_COLORS[cats.length%CAT_COLORS.length]});setShowCatModal(true);}} className="flex items-center gap-2 bg-[#1D6FA4] text-white px-3.5 py-2 rounded-xl text-xs font-semibold"><Ic n="plus" s={13}/> Nova</button>
               </div>
               {/* Point 4: search */}
               <div className="relative mb-3">
@@ -1313,7 +1376,7 @@ const App=()=>{
                       </div>
                       {/* Point 5: no hex shown */}
                       <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={()=>{setEditCatId(cat.id);setCForm({name:cat.name,color:cat.color});setShowCatModal(true);}} className={`p-1.5 rounded-lg ${th('text-slate-400 hover:text-indigo-600 hover:bg-indigo-50','text-slate-500 hover:text-indigo-400')}`}><Ic n="pn" s={13}/></button>
+                        <button onClick={()=>{setEditCatId(cat.id);setCForm({name:cat.name,color:cat.color});setShowCatModal(true);}} className={`p-1.5 rounded-lg ${th('text-slate-400 hover:text-[#1D6FA4] hover:bg-[#E8F2FA]','text-slate-500 hover:text-[#4A9AC9]')}`}><Ic n="pn" s={13}/></button>
                         <button onClick={()=>openCatDel(cat)} className={`p-1.5 rounded-lg ${th('text-slate-300 hover:text-rose-500 hover:bg-rose-50','text-slate-600 hover:text-rose-400')}`}><Ic n="tr" s={13}/></button>
                       </div>
                     </div>
@@ -1365,8 +1428,8 @@ const App=()=>{
                 </select>
               </div>
               <div className={`flex items-center justify-between p-3.5 rounded-xl border ${th('bg-slate-50 border-slate-200','bg-slate-950 border-slate-700')}`}>
-                <div className="flex items-center gap-2.5"><Ic n="rp" s={16} c="text-indigo-500"/><div><p className="text-sm font-semibold" style={{color:dark?'white':'#0f172a'}}>Recorrência</p><p className="text-[10px] text-slate-400">Repetir automaticamente</p></div></div>
-                <button type="button" onClick={()=>setForm({...form,isRecurring:!form.isRecurring,status:!form.isRecurring?'pending':form.status})} className={`w-10 h-6 rounded-full transition-all relative ${form.isRecurring?'bg-indigo-600':'bg-slate-300'}`}>
+                <div className="flex items-center gap-2.5"><Ic n="rp" s={16} c="text-[#1D6FA4]"/><div><p className="text-sm font-semibold" style={{color:dark?'white':'#0f172a'}}>Recorrência</p><p className="text-[10px] text-slate-400">Repetir automaticamente</p></div></div>
+                <button type="button" onClick={()=>setForm({...form,isRecurring:!form.isRecurring,status:!form.isRecurring?'pending':form.status})} className={`w-10 h-6 rounded-full transition-all relative ${form.isRecurring?'bg-[#1D6FA4]':'bg-slate-300'}`}>
                   <span className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-all ${form.isRecurring?'translate-x-4':'translate-x-0'}`}></span>
                 </button>
               </div>
@@ -1376,7 +1439,7 @@ const App=()=>{
                     <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-2">Tipo</label>
                     <div className="grid grid-cols-2 gap-2">
                       {[{v:'installments',l:'Parcelado',d:'Número fixo de parcelas'},{v:'continuous',l:'Contínuo',d:'Até você cancelar'}].map(op=>(
-                        <button key={op.v} type="button" onClick={()=>setForm({...form,recurrenceType:op.v})} className={`p-2.5 rounded-xl text-left border transition-all ${form.recurrenceType===op.v?'border-indigo-500 bg-indigo-50 text-indigo-700':th('border-slate-200 text-slate-500','border-slate-700 text-slate-400')}`}>
+                        <button key={op.v} type="button" onClick={()=>setForm({...form,recurrenceType:op.v})} className={`p-2.5 rounded-xl text-left border transition-all ${form.recurrenceType===op.v?'border-[#1D6FA4] bg-[#E8F2FA] text-[#155D8A]':th('border-slate-200 text-slate-500','border-slate-700 text-slate-400')}`}>
                           <p className="text-xs font-bold">{op.l}</p><p className="text-[9px] mt-0.5 opacity-70">{op.d}</p>
                         </button>
                       ))}
@@ -1386,7 +1449,7 @@ const App=()=>{
                     <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-2">Frequência</label>
                     <div className="grid grid-cols-3 gap-1.5">
                       {[{v:'weekly',l:'Semanal'},{v:'biweekly',l:'Quinzenal'},{v:'monthly',l:'Mensal'},{v:'quarterly',l:'Trimestral'},{v:'semiannual',l:'Semestral'},{v:'yearly',l:'Anual'}].map(op=>(
-                        <button key={op.v} type="button" onClick={()=>setForm({...form,recurrenceInterval:op.v})} className={`py-2 px-1 rounded-lg text-[10px] font-semibold border transition-all text-center ${form.recurrenceInterval===op.v?'border-indigo-500 bg-indigo-50 text-indigo-700':th('border-slate-200 text-slate-500','border-slate-700 text-slate-400')}`}>{op.l}</button>
+                        <button key={op.v} type="button" onClick={()=>setForm({...form,recurrenceInterval:op.v})} className={`py-2 px-1 rounded-lg text-[10px] font-semibold border transition-all text-center ${form.recurrenceInterval===op.v?'border-[#1D6FA4] bg-[#E8F2FA] text-[#155D8A]':th('border-slate-200 text-slate-500','border-slate-700 text-slate-400')}`}>{op.l}</button>
                       ))}
                     </div>
                     {form.recurrenceType==='installments'&&<div className="mt-3"><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Número de Parcelas</label><input type="number" min="2" max="360" value={form.installmentsCount||''} onChange={e=>setForm({...form,installmentsCount:e.target.value})} placeholder="Ex: 12" className={inp}/></div>}
@@ -1394,7 +1457,7 @@ const App=()=>{
                   </div>
                 </div>
               )}
-              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-semibold text-sm shadow-sm shadow-indigo-500/30 transition-all">Salvar Lançamento</button>
+              <button type="submit" className="w-full bg-[#1D6FA4] hover:bg-[#155D8A] text-white py-3 rounded-xl font-semibold text-sm shadow-sm shadow-[#1D6FA4]/30 transition-all">Salvar Lançamento</button>
             </form>
           </div>
         </div>
@@ -1410,7 +1473,7 @@ const App=()=>{
             </div>
             <div className={`p-3 rounded-xl mb-4 ${th('bg-slate-50','bg-slate-800')}`}>
               <p className={`text-sm font-semibold ${th('text-slate-700','text-slate-200')}`}>{efMod.tx?.description}</p>
-              <p className="text-sm font-bold text-indigo-500 mt-0.5">{efMod.tx&&fB(efMod.tx.type==='income'?efMod.tx.amount:-efMod.tx.amount)}</p>
+              <p className="text-sm font-bold text-[#1D6FA4] mt-0.5">{efMod.tx&&fB(efMod.tx.type==='income'?efMod.tx.amount:-efMod.tx.amount)}</p>
             </div>
             <div className="mb-4">
               <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1.5">Data do Pagamento</label>
@@ -1419,7 +1482,7 @@ const App=()=>{
             </div>
             <div className="flex gap-2">
               <button onClick={()=>setEfMod({o:false,tx:null,date:''})} className={`flex-1 py-2.5 rounded-xl text-xs font-semibold ${th('bg-slate-100 text-slate-600','bg-slate-800 text-slate-300')}`}>Cancelar</button>
-              <button onClick={confEf} className="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700">Confirmar</button>
+              <button onClick={confEf} className="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-[#1D6FA4] text-white hover:bg-[#155D8A]">Confirmar</button>
             </div>
           </div>
         </div>
@@ -1441,7 +1504,7 @@ const App=()=>{
                   <button type="button" onClick={()=>setEForm({...eForm,type:'card'})} className={`flex-1 py-2.5 rounded-xl font-semibold text-xs border transition-all flex items-center justify-center gap-1.5 ${eForm.type==='card'?'bg-purple-500 text-white border-purple-600':'bg-slate-50 text-slate-500 border-slate-200'}`}><Ic n="cd" s={13}/> Cartão</button>
                 </div>
               </div>
-              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-xs font-semibold transition-all">Salvar Unidade</button>
+              <button type="submit" className="w-full bg-[#1D6FA4] hover:bg-[#155D8A] text-white py-2.5 rounded-xl text-xs font-semibold transition-all">Salvar Unidade</button>
             </form>
           </div>
         </div>
@@ -1474,7 +1537,7 @@ const App=()=>{
                   <input type="text" value={cForm.color} onChange={e=>setCForm({...cForm,color:e.target.value})} className={`${inp} font-mono text-xs`} placeholder="#000000"/>
                 </div>
               </div>
-              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-xs font-semibold transition-all">Salvar Categoria</button>
+              <button type="submit" className="w-full bg-[#1D6FA4] hover:bg-[#155D8A] text-white py-2.5 rounded-xl text-xs font-semibold transition-all">Salvar Categoria</button>
             </form>
           </div>
         </div>
@@ -1528,7 +1591,7 @@ const App=()=>{
               ))}
             </div>
             <div className="flex gap-2 mt-5">
-              {showTxDetail.status==='pending'&&<button onClick={()=>{openEf(showTxDetail);setShowTxDetail(null);}} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold"><Ic n="ok" s={13}/> Efetivar</button>}
+              {showTxDetail.status==='pending'&&<button onClick={()=>{openEf(showTxDetail);setShowTxDetail(null);}} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#1D6FA4] text-white text-xs font-semibold"><Ic n="ok" s={13}/> Efetivar</button>}
               <button onClick={()=>{openE(showTxDetail);setShowTxDetail(null);}} className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold border ${th('border-slate-200 text-slate-600 hover:bg-slate-50','border-slate-700 text-slate-300 hover:bg-slate-800')}`}><Ic n="pn" s={13}/> Editar</button>
               <button onClick={()=>{rDel(showTxDetail);setShowTxDetail(null);}} className="flex items-center justify-center px-3.5 py-2.5 rounded-xl bg-rose-50 text-rose-500 border border-rose-200 hover:bg-rose-100 text-xs font-semibold"><Ic n="tr" s={13}/></button>
             </div>
@@ -1558,7 +1621,7 @@ const App=()=>{
                 <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">E-mail</label><input type="email" value={contactForm.email} onChange={e=>setContactForm({...contactForm,email:e.target.value})} placeholder="email@exemplo.com" className={inp}/></div>
               </div>
               <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">{contactForm.type==='pj'?'CNPJ':'CPF'} <span className="normal-case font-normal text-slate-400">(opcional)</span></label><input type="text" value={contactForm.doc} onChange={e=>setContactForm({...contactForm,doc:e.target.value})} placeholder={contactForm.type==='pj'?'00.000.000/0001-00':'000.000.000-00'} className={inp}/></div>
-              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-xs font-semibold transition-all">Salvar Cadastro</button>
+              <button type="submit" className="w-full bg-[#1D6FA4] hover:bg-[#155D8A] text-white py-2.5 rounded-xl text-xs font-semibold transition-all">Salvar Cadastro</button>
             </form>
           </div>
         </div>
@@ -1590,7 +1653,7 @@ const App=()=>{
               <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Tipo de Conta</label>
                 <div className="grid grid-cols-2 gap-2">
                   {[{v:'corrente',l:'Conta Corrente'},{v:'poupanca',l:'Poupança'},{v:'investimento',l:'Investimento'},{v:'pagamento',l:'Pagamento'}].map(op=>(
-                    <button key={op.v} type="button" onClick={()=>setPersonalAcc({...personalAcc,accountType:op.v})} className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-all text-left ${personalAcc.accountType===op.v?'border-indigo-500 bg-indigo-50 text-indigo-700':th('border-slate-200 text-slate-500','border-slate-700 text-slate-400')}`}>{op.l}</button>
+                    <button key={op.v} type="button" onClick={()=>setPersonalAcc({...personalAcc,accountType:op.v})} className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-all text-left ${personalAcc.accountType===op.v?'border-[#1D6FA4] bg-[#E8F2FA] text-[#155D8A]':th('border-slate-200 text-slate-500','border-slate-700 text-slate-400')}`}>{op.l}</button>
                   ))}
                 </div>
               </div>
@@ -1600,7 +1663,7 @@ const App=()=>{
               <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Observações <span className="normal-case font-normal text-slate-400">(opcional)</span></label>
                 <input type="text" value={personalAcc.note||''} onChange={e=>setPersonalAcc({...personalAcc,note:e.target.value})} placeholder="Ex: conta usada para despesas pessoais" className={inp}/>
               </div>
-              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-xs font-semibold transition-all mt-1">Salvar Informações</button>
+              <button type="submit" className="w-full bg-[#1D6FA4] hover:bg-[#155D8A] text-white py-2.5 rounded-xl text-xs font-semibold transition-all mt-1">Salvar Informações</button>
             </form>
           </div>
         </div>
@@ -1643,10 +1706,10 @@ const App=()=>{
                 <p className={`text-xs ${th('text-slate-500','text-slate-400')}`}>Esta categoria tem lançamentos vinculados. Escolha o que fazer com eles:</p>
 
                 {/* Opção 1: Migrar */}
-                <div onClick={()=>setCatDelModal(s=>({...s,action:'migrate'}))} className={`p-3.5 rounded-xl border cursor-pointer transition-all ${catDelModal.action==='migrate'?th('border-indigo-500 bg-indigo-50','border-indigo-500 bg-indigo-500/10'):th('border-slate-200 hover:border-slate-300','border-slate-700 hover:border-slate-600')}`}>
+                <div onClick={()=>setCatDelModal(s=>({...s,action:'migrate'}))} className={`p-3.5 rounded-xl border cursor-pointer transition-all ${catDelModal.action==='migrate'?th('border-[#1D6FA4] bg-[#E8F2FA]','border-[#1D6FA4] bg-[#1D6FA4]/10'):th('border-slate-200 hover:border-slate-300','border-slate-700 hover:border-slate-600')}`}>
                   <div className="flex items-center gap-2 mb-2">
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${catDelModal.action==='migrate'?'border-indigo-500':'border-slate-300'}`}>
-                      {catDelModal.action==='migrate'&&<div className="w-2 h-2 rounded-full bg-indigo-500"></div>}
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${catDelModal.action==='migrate'?'border-[#1D6FA4]':'border-slate-300'}`}>
+                      {catDelModal.action==='migrate'&&<div className="w-2 h-2 rounded-full bg-[#1D6FA4]"></div>}
                     </div>
                     <p className={`text-xs font-semibold ${th('text-slate-700','text-slate-200')}`}>Migrar lançamentos para outra categoria</p>
                   </div>
@@ -1678,7 +1741,7 @@ const App=()=>{
 
                 <div className="flex gap-2 pt-1">
                   <button onClick={()=>setCatDelModal({o:false,cat:null,count:0,total:0,action:'migrate',targetCat:''})} className={`flex-1 py-2.5 rounded-xl text-xs font-semibold ${th('bg-slate-100 text-slate-600','bg-slate-800 text-slate-300')}`}>Cancelar</button>
-                  <button onClick={confCatDel} className={`flex-1 py-2.5 rounded-xl text-xs font-semibold text-white ${catDelModal.action==='delete'?'bg-rose-600 hover:bg-rose-700':'bg-indigo-600 hover:bg-indigo-700'}`}>
+                  <button onClick={confCatDel} className={`flex-1 py-2.5 rounded-xl text-xs font-semibold text-white ${catDelModal.action==='delete'?'bg-rose-600 hover:bg-rose-700':'bg-[#1D6FA4] hover:bg-[#155D8A]'}`}>
                     {catDelModal.action==='delete'?'Excluir Tudo':'Migrar e Excluir'}
                   </button>
                 </div>
@@ -1707,19 +1770,19 @@ const App=()=>{
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-2">Nível de acesso</label>
                   <div className="space-y-2">
                     {[{v:'admin',l:'Admin',d:'Acesso total exceto excluir workspace'},{v:'analista',l:'Analista',d:'Lançar e editar, sem excluir'},{v:'leitor',l:'Leitor',d:'Somente visualização'}].map(op=>(
-                      <button key={op.v} type="button" onClick={()=>setInviteForm({...inviteForm,role:op.v})} className={`w-full p-2.5 rounded-xl text-left border transition-all ${inviteForm.role===op.v?'border-indigo-500 bg-indigo-50':th('border-slate-200','border-slate-700')}`}>
+                      <button key={op.v} type="button" onClick={()=>setInviteForm({...inviteForm,role:op.v})} className={`w-full p-2.5 rounded-xl text-left border transition-all ${inviteForm.role===op.v?'border-[#1D6FA4] bg-[#E8F2FA]':th('border-slate-200','border-slate-700')}`}>
                         <div className="flex items-center gap-2">
-                          <div className={`w-3 h-3 rounded-full border-2 flex items-center justify-center ${inviteForm.role===op.v?'border-indigo-500':'border-slate-300'}`}>
-                            {inviteForm.role===op.v&&<div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>}
+                          <div className={`w-3 h-3 rounded-full border-2 flex items-center justify-center ${inviteForm.role===op.v?'border-[#1D6FA4]':'border-slate-300'}`}>
+                            {inviteForm.role===op.v&&<div className="w-1.5 h-1.5 rounded-full bg-[#1D6FA4]"></div>}
                           </div>
-                          <span className={`text-xs font-bold ${inviteForm.role===op.v?'text-indigo-700':th('text-slate-700','text-slate-300')}`}>{op.l}</span>
+                          <span className={`text-xs font-bold ${inviteForm.role===op.v?'text-[#155D8A]':th('text-slate-700','text-slate-300')}`}>{op.l}</span>
                         </div>
                         <p className={`text-[10px] mt-0.5 ml-5 ${th('text-slate-400','text-slate-500')}`}>{op.d}</p>
                       </button>
                     ))}
                   </div>
                 </div>
-                <button type="submit" disabled={inviteLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white py-2.5 rounded-xl text-xs font-semibold transition-all">{inviteLoading?'Gerando link…':'Gerar Link de Convite'}</button>
+                <button type="submit" disabled={inviteLoading} className="w-full bg-[#1D6FA4] hover:bg-[#155D8A] disabled:opacity-60 text-white py-2.5 rounded-xl text-xs font-semibold transition-all">{inviteLoading?'Gerando link…':'Gerar Link de Convite'}</button>
               </form>
             ):(
               <div className="space-y-4">
@@ -1731,7 +1794,7 @@ const App=()=>{
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Link de convite</label>
                   <div className="flex gap-2">
                     <input readOnly value={inviteLink} className={`${inp} text-xs flex-1`}/>
-                    <button type="button" onClick={()=>{navigator.clipboard.writeText(inviteLink);alert('Link copiado!');}} className="px-3 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shrink-0">Copiar</button>
+                    <button type="button" onClick={()=>{navigator.clipboard.writeText(inviteLink);alert('Link copiado!');}} className="px-3 py-2 bg-[#1D6FA4] text-white rounded-xl text-xs font-semibold shrink-0">Copiar</button>
                   </div>
                 </div>
                 <p className={`text-[10px] leading-relaxed ${th('text-slate-500','text-slate-400')}`}>📱 Envie este link por WhatsApp ou e-mail. O convidado precisará criar uma conta ao abrir o link.</p>
@@ -1745,19 +1808,19 @@ const App=()=>{
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className={`rounded-2xl shadow-2xl w-full max-w-sm p-6 ${th('bg-white','bg-slate-900')}`}>
             <div className="text-center mb-6">
-              <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-indigo-500/30"><Ic n="us" s={24} c="text-white"/></div>
+              <div className="w-14 h-14 rounded-2xl bg-[#1D6FA4] flex items-center justify-center mx-auto mb-3 shadow-lg shadow-[#1D6FA4]/30"><Ic n="us" s={24} c="text-white"/></div>
               <h3 className="text-base font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Convite para Workspace</h3>
               <p className="text-xs text-slate-400 mt-1">Você foi convidado por</p>
-              <p className="text-sm font-semibold text-indigo-600 mt-0.5">{inviteInfo.ownerName||inviteInfo.ownerEmail}</p>
+              <p className="text-sm font-semibold text-[#1D6FA4] mt-0.5">{inviteInfo.ownerName||inviteInfo.ownerEmail}</p>
             </div>
             <div className={`p-3.5 rounded-xl border mb-5 ${th('bg-slate-50 border-slate-200','bg-slate-800 border-slate-700')}`}>
               <div className="flex justify-between items-center">
                 <span className={`text-xs ${th('text-slate-500','text-slate-400')}`}>Seu nível de acesso</span>
-                <span className="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg capitalize">{inviteInfo.role}</span>
+                <span className="text-xs font-bold text-[#1D6FA4] bg-[#E8F2FA] border border-[#B3D9EC] px-2.5 py-1 rounded-lg capitalize">{inviteInfo.role}</span>
               </div>
             </div>
             <div className="space-y-2">
-              <button onClick={acceptInvite} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-semibold text-sm transition-all">Aceitar Convite</button>
+              <button onClick={acceptInvite} className="w-full bg-[#1D6FA4] hover:bg-[#155D8A] text-white py-3 rounded-xl font-semibold text-sm transition-all">Aceitar Convite</button>
               <button onClick={()=>{setShowInviteAccept(false);window.history.replaceState({},'',window.location.pathname);setWorkspaceOwnerUid(user?.uid);setUserRole('owner');}} className={`w-full py-2.5 rounded-xl text-xs font-semibold ${th('bg-slate-100 text-slate-600','bg-slate-800 text-slate-300')}`}>Recusar</button>
             </div>
           </div>
@@ -1783,19 +1846,19 @@ const App=()=>{
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-2">Nível de acesso</label>
                   <div className="space-y-2">
                     {[{v:'admin',l:'Admin',d:'Acesso total exceto excluir workspace'},{v:'analista',l:'Analista',d:'Lançar e editar, sem excluir'},{v:'leitor',l:'Leitor',d:'Somente visualização'}].map(op=>(
-                      <button key={op.v} type="button" onClick={()=>setInviteForm({...inviteForm,role:op.v})} className={`w-full p-2.5 rounded-xl text-left border transition-all ${inviteForm.role===op.v?'border-indigo-500 bg-indigo-50':th('border-slate-200','border-slate-700')}`}>
+                      <button key={op.v} type="button" onClick={()=>setInviteForm({...inviteForm,role:op.v})} className={`w-full p-2.5 rounded-xl text-left border transition-all ${inviteForm.role===op.v?'border-[#1D6FA4] bg-[#E8F2FA]':th('border-slate-200','border-slate-700')}`}>
                         <div className="flex items-center gap-2">
-                          <div className={`w-3 h-3 rounded-full border-2 flex items-center justify-center ${inviteForm.role===op.v?'border-indigo-500':'border-slate-300'}`}>
-                            {inviteForm.role===op.v&&<div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>}
+                          <div className={`w-3 h-3 rounded-full border-2 flex items-center justify-center ${inviteForm.role===op.v?'border-[#1D6FA4]':'border-slate-300'}`}>
+                            {inviteForm.role===op.v&&<div className="w-1.5 h-1.5 rounded-full bg-[#1D6FA4]"></div>}
                           </div>
-                          <span className={`text-xs font-bold ${inviteForm.role===op.v?'text-indigo-700':th('text-slate-700','text-slate-300')}`}>{op.l}</span>
+                          <span className={`text-xs font-bold ${inviteForm.role===op.v?'text-[#155D8A]':th('text-slate-700','text-slate-300')}`}>{op.l}</span>
                         </div>
                         <p className={`text-[10px] mt-0.5 ml-5 ${th('text-slate-400','text-slate-500')}`}>{op.d}</p>
                       </button>
                     ))}
                   </div>
                 </div>
-                <button type="submit" disabled={inviteLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white py-2.5 rounded-xl text-xs font-semibold transition-all">{inviteLoading?'Gerando link…':'Gerar Link de Convite'}</button>
+                <button type="submit" disabled={inviteLoading} className="w-full bg-[#1D6FA4] hover:bg-[#155D8A] disabled:opacity-60 text-white py-2.5 rounded-xl text-xs font-semibold transition-all">{inviteLoading?'Gerando link…':'Gerar Link de Convite'}</button>
               </form>
             ):(
               <div className="space-y-4">
@@ -1807,7 +1870,7 @@ const App=()=>{
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Link de convite</label>
                   <div className="flex gap-2">
                     <input readOnly value={inviteLink} className={`${inp} text-xs flex-1`}/>
-                    <button type="button" onClick={()=>{navigator.clipboard.writeText(inviteLink);alert('Link copiado!');}} className="px-3 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shrink-0">Copiar</button>
+                    <button type="button" onClick={()=>{navigator.clipboard.writeText(inviteLink);alert('Link copiado!');}} className="px-3 py-2 bg-[#1D6FA4] text-white rounded-xl text-xs font-semibold shrink-0">Copiar</button>
                   </div>
                 </div>
                 <p className={`text-[10px] leading-relaxed ${th('text-slate-500','text-slate-400')}`}>📱 Envie este link por WhatsApp ou e-mail. O convidado precisará criar uma conta ao abrir o link.</p>
@@ -1821,19 +1884,19 @@ const App=()=>{
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className={`rounded-2xl shadow-2xl w-full max-w-sm p-6 ${th('bg-white','bg-slate-900')}`}>
             <div className="text-center mb-6">
-              <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-indigo-500/30"><Ic n="us" s={24} c="text-white"/></div>
+              <div className="w-14 h-14 rounded-2xl bg-[#1D6FA4] flex items-center justify-center mx-auto mb-3 shadow-lg shadow-[#1D6FA4]/30"><Ic n="us" s={24} c="text-white"/></div>
               <h3 className="text-base font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Convite para Workspace</h3>
               <p className="text-xs text-slate-400 mt-1">Você foi convidado por</p>
-              <p className="text-sm font-semibold text-indigo-600 mt-0.5">{inviteInfo.ownerName||inviteInfo.ownerEmail}</p>
+              <p className="text-sm font-semibold text-[#1D6FA4] mt-0.5">{inviteInfo.ownerName||inviteInfo.ownerEmail}</p>
             </div>
             <div className={`p-3.5 rounded-xl border mb-5 ${th('bg-slate-50 border-slate-200','bg-slate-800 border-slate-700')}`}>
               <div className="flex justify-between items-center">
                 <span className={`text-xs ${th('text-slate-500','text-slate-400')}`}>Seu nível de acesso</span>
-                <span className="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg capitalize">{inviteInfo.role}</span>
+                <span className="text-xs font-bold text-[#1D6FA4] bg-[#E8F2FA] border border-[#B3D9EC] px-2.5 py-1 rounded-lg capitalize">{inviteInfo.role}</span>
               </div>
             </div>
             <div className="space-y-2">
-              <button onClick={acceptInvite} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-semibold text-sm transition-all">Aceitar Convite</button>
+              <button onClick={acceptInvite} className="w-full bg-[#1D6FA4] hover:bg-[#155D8A] text-white py-3 rounded-xl font-semibold text-sm transition-all">Aceitar Convite</button>
               <button onClick={()=>{setShowInviteAccept(false);window.history.replaceState({},'',window.location.pathname);setWorkspaceOwnerUid(user?.uid);setUserRole('owner');}} className={`w-full py-2.5 rounded-xl text-xs font-semibold ${th('bg-slate-100 text-slate-600','bg-slate-800 text-slate-300')}`}>Recusar</button>
             </div>
           </div>
@@ -1842,7 +1905,7 @@ const App=()=>{
       {/* Cloud status */}
       <div className={`fixed bottom-4 right-4 flex items-center gap-2 px-3 py-2 rounded-xl shadow-lg border backdrop-blur-xl z-50 ${th('bg-white/90 border-slate-200','bg-slate-900/90 border-slate-700')}`}>
         {cs==='connecting'&&<><Ic n="rf" s={11} c="asp text-slate-400"/><span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Conectando</span></>}
-        {cs==='syncing'&&<><Ic n="cl" s={11} c="apu text-indigo-500"/><span className="text-[9px] font-semibold uppercase tracking-wide text-indigo-500">Salvando</span></>}
+        {cs==='syncing'&&<><Ic n="cl" s={11} c="apu text-[#1D6FA4]"/><span className="text-[9px] font-semibold uppercase tracking-wide text-[#1D6FA4]">Salvando</span></>}
         {cs==='synced'&&<><Ic n="ok" s={11} c="text-emerald-500"/><span className="text-[9px] font-semibold uppercase tracking-wide text-emerald-500">Sincronizado</span></>}
         {cs==='error'&&<><Ic n="wn" s={11} c="text-rose-500"/><span className="text-[9px] font-semibold uppercase tracking-wide text-rose-500">Erro</span></>}
       </div>
