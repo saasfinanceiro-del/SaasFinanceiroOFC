@@ -1182,6 +1182,29 @@ const App=()=>{
                 {fdItems.map(t=><TRow key={t.id} t={t}/>)}
                 {!fdItems.length&&<div className={`text-center py-12 rounded-xl border-2 border-dashed ${th('border-slate-200','border-slate-800')}`}><p className="text-xs font-medium text-slate-400">Nenhum lançamento encontrado.</p></div>}
               </div>
+
+              {/* ── Lançamentos Vencidos ── */}
+              {ovItems.length>0&&(
+                <div className="mt-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Ic n="wn" s={16} c="text-rose-500"/>
+                    <h3 className={`text-sm font-semibold ${th('text-slate-700','text-slate-200')}`}>
+                      Lançamentos Vencidos
+                    </h3>
+                    <span className="text-[10px] font-bold text-white bg-rose-500 px-2 py-0.5 rounded-full apu">
+                      {ovItems.length}
+                    </span>
+                  </div>
+                  <div className={`rounded-xl border p-3 mb-2 ${th('bg-rose-50 border-rose-200','bg-rose-900/20 border-rose-500/30')}`}>
+                    <p className={`text-[10px] font-medium ${th('text-rose-600','text-rose-400')}`}>
+                      ⚠️ Estes lançamentos venceram em meses anteriores e ainda estão em aberto. Total em atraso: <span className="font-bold">R$ {fM(ovExp)}</span>
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    {ovItems.map(t=><TRow key={t.id+'-ov'} t={t}/>)}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
