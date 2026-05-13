@@ -125,6 +125,7 @@ const Ic=({n,s=18,c=''})=>{
     bank:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><line x1="3"y1="22"x2="21"y2="22"/><line x1="6"y1="18"x2="6"y2="11"/><line x1="10"y1="18"x2="10"y2="11"/><line x1="14"y1="18"x2="14"y2="11"/><line x1="18"y1="18"x2="18"y2="11"/><polygon points="12 2 20 7 4 7"/></svg>,
     editUser:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9"cy="7"r="4"/><path d="M23 11l-4.5 4.5-2-2L20 11l3 0z"/><path d="M16.5 15.5l-2-2"/></svg>,
     key:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>,
+    pct:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><line x1="19"y1="5"x2="5"y2="19"/><circle cx="6.5"cy="6.5"r="2.5"/><circle cx="17.5"cy="17.5"r="2.5"/></svg>,
   };
   return m[n]||null;
 };
@@ -258,6 +259,14 @@ const App=()=>{
   const[showInviteAccept,setShowInviteAccept]=useState(false);
   const[inviteInfo,setInviteInfo]=useState(null);
 
+  /* ── Impostos & Taxas ── */
+  const[impostos,setImpostos]=useState([]);
+  const[taxas,setTaxas]=useState([]);
+  const[showImpostoModal,setShowImpostoModal]=useState(false);
+  const[showTaxaModal,setShowTaxaModal]=useState(false);
+  const[impostoForm,setImpostoForm]=useState({nome:'',aliquota:'',regra:'faturamento'});
+  const[taxaForm,setTaxaForm]=useState({nome:'',regra:'comissao',formaPagamento:'todas',tipo:'percentual',valor:''});
+
   const isOwner=userRole==='owner';
   const canWrite=['owner','admin','analista'].includes(userRole);
   const canDelete=['owner','admin'].includes(userRole);
@@ -374,7 +383,9 @@ const App=()=>{
     const u5b=onSnapshot(doc(db,'ugrup',uid,'settings','profile'),snap=>{if(snap.exists()&&snap.data().companyName)setCompanyName(snap.data().companyName);});
     let u6=()=>{};
     if(isOwner){u6=onSnapshot(collection(db,'ugrup',uid,'members'),snap=>{setWorkspaceMembers(snap.docs.map(d=>({id:d.id,...d.data()})));});}
-    return()=>{u1();u2();u3();u4();u5();u5b();u6();};
+    const u7=onSnapshot(collection(db,'ugrup',uid,'impostos'),snap=>{setImpostos(snap.docs.map(d=>({id:d.id,...d.data()})));});
+    const u8=onSnapshot(collection(db,'ugrup',uid,'taxas'),snap=>{setTaxas(snap.docs.map(d=>({id:d.id,...d.data()})));});
+    return()=>{u1();u2();u3();u4();u5();u5b();u6();u7();u8();};
   },[user,fbReady,workspaceOwnerUid,isOwner]);
 
   const sv=async(col,id,data)=>{if(!user||!fbReady||!workspaceOwnerUid)return;setCs('syncing');try{const{doc,setDoc}=window.__fb;await setDoc(doc(window.__db,'ugrup',workspaceOwnerUid,col,String(id)),data);setCs('synced');}catch{setCs('error');}};
@@ -759,7 +770,7 @@ const App=()=>{
     {id:'forecast',n:'ch',l:'Previsão de Caixa'},
     {id:'contacts',n:'contacts',l:'Pessoas & Empresas'},
     {id:'team',n:'us',l:'Equipe'},
-    {id:'planos',n:'st',l:'Planos'},{id:'settings',n:'cg',l:'Configurações'},
+    {id:'impostos',n:'pct',l:'Impostos'},{id:'planos',n:'st',l:'Planos'},{id:'settings',n:'cg',l:'Configurações'},
   ];
 
   /* ── RENDER ── */
@@ -944,7 +955,7 @@ const App=()=>{
             ):(
               <div>
                 <h1 className="text-lg font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>
-                  {tab==='forecast'?'Previsão de Caixa':tab==='contacts'?'Pessoas & Empresas':tab==='team'?'Gestão de Equipe':tab==='planos'?'Planos':'Configurações'}
+                  {tab==='forecast'?'Previsão de Caixa':tab==='contacts'?'Pessoas & Empresas':tab==='team'?'Gestão de Equipe':tab==='impostos'?'Impostos & Taxas':tab==='planos'?'Planos':'Configurações'}
                 </h1>
                 <p className={`text-xs mt-0.5 font-medium ${th('text-slate-400','text-slate-500')}`}>{tab==='forecast'?'Liquidez, vencimentos e inadimplência integrados':''}</p>
               </div>
@@ -1312,6 +1323,83 @@ const App=()=>{
           </div>
         )}
 
+
+        {/* ══ IMPOSTOS ══ */}
+        {tab==='impostos'&&(
+          <div className="space-y-6 ai pb-10 max-w-3xl">
+
+            {/* Card Imposto */}
+            <div className={`rounded-2xl border overflow-hidden ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
+              <div className={`flex items-center justify-between px-6 py-4 border-b ${th('border-slate-100','border-slate-800')}`}>
+                <div>
+                  <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Imposto</h3>
+                  <p className={`text-xs mt-0.5 ${th('text-slate-400','text-slate-500')}`}>Configure o imposto dos seus produtos.</p>
+                </div>
+                <button onClick={()=>{setImpostoForm({nome:'',aliquota:'',regra:'faturamento'});setShowImpostoModal(true);}} className="flex items-center gap-2 bg-[#1D6FA4] text-white px-3.5 py-2 rounded-xl text-xs font-semibold"><Ic n="plus" s={13}/> Adicionar Imposto</button>
+              </div>
+              {impostos.length===0?(
+                <div className={`flex flex-col items-center justify-center py-12 ${th('text-slate-400','text-slate-500')}`}>
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${th('bg-slate-100','bg-slate-800')}`}><Ic n="pct" s={22}/></div>
+                  <p className="text-sm font-semibold">Nenhum imposto configurado</p>
+                  <p className="text-xs mt-1">Adicione um imposto para começar.</p>
+                </div>
+              ):(
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {impostos.map(imp=>(
+                    <div key={imp.id} className={`flex items-start justify-between px-6 py-4 ${th('hover:bg-slate-50','hover:bg-slate-800/50')} transition-colors`}>
+                      <div className="flex items-start gap-3">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${th('bg-amber-50 text-amber-500','bg-amber-500/10 text-amber-400')}`}><Ic n="pct" s={16}/></div>
+                        <div>
+                          <p className={`text-sm font-semibold ${th('text-slate-800','text-slate-100')}`}>{imp.nome}</p>
+                          <p className={`text-xs mt-0.5 ${th('text-slate-400','text-slate-500')}`}>Alíquota: {imp.aliquota}%</p>
+                          <p className={`text-xs ${th('text-slate-400','text-slate-500')}`}>Calculado automaticamente sobre o {imp.regra==='faturamento'?'valor de faturamento':'valor de comissão'}.</p>
+                        </div>
+                      </div>
+                      <button onClick={()=>rm('impostos',imp.id)} className={`p-1.5 rounded-lg shrink-0 ml-3 ${th('hover:bg-rose-50 text-slate-400 hover:text-rose-500','hover:bg-rose-500/10 text-slate-500 hover:text-rose-400')}`}><Ic n="tr" s={14}/></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Card Taxas */}
+            <div className={`rounded-2xl border overflow-hidden ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
+              <div className={`flex items-center justify-between px-6 py-4 border-b ${th('border-slate-100','border-slate-800')}`}>
+                <div>
+                  <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Taxas</h3>
+                  <p className={`text-xs mt-0.5 ${th('text-slate-400','text-slate-500')}`}>Configure taxas adicionais.</p>
+                </div>
+                <button onClick={()=>{setTaxaForm({nome:'',regra:'comissao',formaPagamento:'todas',tipo:'percentual',valor:''});setShowTaxaModal(true);}} className="flex items-center gap-2 bg-[#1D6FA4] text-white px-3.5 py-2 rounded-xl text-xs font-semibold"><Ic n="plus" s={13}/> Adicionar Taxa</button>
+              </div>
+              {taxas.length===0?(
+                <div className={`flex flex-col items-center justify-center py-12 ${th('text-slate-400','text-slate-500')}`}>
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${th('bg-slate-100','bg-slate-800')}`}><Ic n="wallet" s={22}/></div>
+                  <p className="text-sm font-semibold">Nenhuma taxa configurada</p>
+                  <p className="text-xs mt-1">Adicione uma taxa para começar.</p>
+                </div>
+              ):(
+                <div className="divide-y divide-slate-100">
+                  {taxas.map(tx=>(
+                    <div key={tx.id} className={`flex items-start justify-between px-6 py-4 ${th('hover:bg-slate-50','hover:bg-slate-800/50')} transition-colors`}>
+                      <div className="flex items-start gap-3">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${th('bg-indigo-50 text-indigo-500','bg-indigo-500/10 text-indigo-400')}`}><Ic n="wallet" s={16}/></div>
+                        <div>
+                          <p className={`text-sm font-semibold ${th('text-slate-800','text-slate-100')}`}>{tx.nome}</p>
+                          <p className={`text-xs mt-0.5 ${th('text-slate-400','text-slate-500')}`}>
+                            {tx.tipo==='percentual'?`${tx.valor}%`:`R$ ${tx.valor}`} · {tx.formaPagamento==='todas'?'Todas as formas':tx.formaPagamento} · Regra: {tx.regra==='comissao'?'Valor de Comissão':'Valor de Faturamento'}
+                          </p>
+                        </div>
+                      </div>
+                      <button onClick={()=>rm('taxas',tx.id)} className={`p-1.5 rounded-lg shrink-0 ml-3 ${th('hover:bg-rose-50 text-slate-400 hover:text-rose-500','hover:bg-rose-500/10 text-slate-500 hover:text-rose-400')}`}><Ic n="tr" s={14}/></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+          </div>
+        )}
+
         {/* ══ SETTINGS ══ */}
         {tab==='planos'&&(
           <div className="space-y-6 ai pb-10 max-w-3xl">
@@ -1638,6 +1726,92 @@ const App=()=>{
 
       {/* Modal Entidade */}
       {showEntModal&&(
+
+      {/* Modal Imposto */}
+      {showImpostoModal&&(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className={`rounded-2xl shadow-2xl w-full max-w-sm p-6 ai ${th('bg-white','bg-slate-900')}`}>
+            <div className={`flex justify-between items-center mb-4 pb-4 border-b ${th('border-slate-100','border-slate-800')}`}>
+              <div>
+                <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Adicionar Imposto</h3>
+              </div>
+              <button onClick={()=>setShowImpostoModal(false)} className={`p-1.5 rounded-lg ${th('hover:bg-slate-100 text-slate-500','hover:bg-slate-800 text-slate-400')}`}><Ic n="x" s={16}/></button>
+            </div>
+            <form onSubmit={e=>{e.preventDefault();const id=`imp-${Date.now()}`;sv('impostos',id,{id,...impostoForm});setShowImpostoModal(false);}} className="space-y-4">
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Nome do Imposto</label>
+                <input required type="text" value={impostoForm.nome} onChange={e=>setImpostoForm({...impostoForm,nome:e.target.value})} placeholder="Ex: Imposto do Anúncio (Meta)" className={inp}/>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Regra de Cálculo</label>
+                <div className="flex gap-2">
+                  {[{v:'faturamento',l:'Valor de Faturamento'},{v:'comissao',l:'Valor de Comissão'}].map(op=>(
+                    <button key={op.v} type="button" onClick={()=>setImpostoForm({...impostoForm,regra:op.v})} className={`flex-1 py-2 rounded-xl font-semibold text-xs border transition-all ${impostoForm.regra===op.v?'border-[#1D6FA4] bg-[#E8F2FA] text-[#155D8A]':th('border-slate-200 text-slate-500 bg-slate-50','border-slate-700 text-slate-400 bg-slate-800')}`}>{op.l}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Alíquota (%)</label>
+                <input required type="number" step="0.01" min="0" max="100" value={impostoForm.aliquota} onChange={e=>setImpostoForm({...impostoForm,aliquota:e.target.value})} placeholder="0,00%" className={inp}/>
+              </div>
+              <button type="submit" className="w-full bg-[#1D6FA4] hover:bg-[#155D8A] text-white py-2.5 rounded-xl text-xs font-semibold transition-all">Adicionar Imposto</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Taxa */}
+      {showTaxaModal&&(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className={`rounded-2xl shadow-2xl w-full max-w-sm p-6 ai ${th('bg-white','bg-slate-900')}`}>
+            <div className={`flex justify-between items-center mb-4 pb-4 border-b ${th('border-slate-100','border-slate-800')}`}>
+              <div>
+                <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Adicionar Taxa</h3>
+              </div>
+              <button onClick={()=>setShowTaxaModal(false)} className={`p-1.5 rounded-lg ${th('hover:bg-slate-100 text-slate-500','hover:bg-slate-800 text-slate-400')}`}><Ic n="x" s={16}/></button>
+            </div>
+            <form onSubmit={e=>{e.preventDefault();const id=`taxa-${Date.now()}`;sv('taxas',id,{id,...taxaForm});setShowTaxaModal(false);}} className="space-y-4">
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Nome</label>
+                <input required type="text" value={taxaForm.nome} onChange={e=>setTaxaForm({...taxaForm,nome:e.target.value})} placeholder="Taxa adicional..." className={inp}/>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Regra de Cálculo</label>
+                <div className="flex gap-2">
+                  {[{v:'comissao',l:'Valor de Comissão'},{v:'faturamento',l:'Valor de Faturamento'}].map(op=>(
+                    <button key={op.v} type="button" onClick={()=>setTaxaForm({...taxaForm,regra:op.v})} className={`flex-1 py-2 rounded-xl font-semibold text-xs border transition-all ${taxaForm.regra===op.v?'border-[#1D6FA4] bg-[#E8F2FA] text-[#155D8A]':th('border-slate-200 text-slate-500 bg-slate-50','border-slate-700 text-slate-400 bg-slate-800')}`}>{op.l}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Forma de Pagamento</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[{v:'todas',l:'Todas'},{v:'credito',l:'Crédito'},{v:'debito',l:'Débito'},{v:'pix',l:'Pix'},{v:'boleto',l:'Boleto'},{v:'dinheiro',l:'Dinheiro'}].map(op=>(
+                    <button key={op.v} type="button" onClick={()=>setTaxaForm({...taxaForm,formaPagamento:op.v})} className={`py-2 rounded-xl font-semibold text-xs border transition-all ${taxaForm.formaPagamento===op.v?'border-[#1D6FA4] bg-[#E8F2FA] text-[#155D8A]':th('border-slate-200 text-slate-500 bg-slate-50','border-slate-700 text-slate-400 bg-slate-800')}`}>{op.l}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Tipo de Taxa</label>
+                <div className="flex gap-2">
+                  {[{v:'percentual',l:'Porcentagem (%)'},{v:'fixo',l:'Valor Fixo (R$)'}].map(op=>(
+                    <button key={op.v} type="button" onClick={()=>setTaxaForm({...taxaForm,tipo:op.v})} className={`flex-1 py-2 rounded-xl font-semibold text-xs border transition-all ${taxaForm.tipo===op.v?'border-[#1D6FA4] bg-[#E8F2FA] text-[#155D8A]':th('border-slate-200 text-slate-500 bg-slate-50','border-slate-700 text-slate-400 bg-slate-800')}`}>{op.l}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Taxa por venda</label>
+                <div className="relative">
+                  <span className={`absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold ${th('text-slate-400','text-slate-500')}`}>{taxaForm.tipo==='percentual'?'%':'R$'}</span>
+                  <input required type="number" step="0.01" min="0" value={taxaForm.valor} onChange={e=>setTaxaForm({...taxaForm,valor:e.target.value})} placeholder="0,00" className={inp+' pl-8'}/>
+                </div>
+              </div>
+              <button type="submit" className="w-full bg-[#1D6FA4] hover:bg-[#155D8A] text-white py-2.5 rounded-xl text-xs font-semibold transition-all">Adicionar Taxa</button>
+            </form>
+          </div>
+        </div>
+      )}
+
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className={`rounded-2xl shadow-xl w-full max-w-sm p-6 ai ${th('bg-white','bg-slate-900')}`}>
             <div className={`flex justify-between items-center mb-4 pb-4 border-b ${th('border-slate-100','border-slate-800')}`}>
