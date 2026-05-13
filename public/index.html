@@ -363,8 +363,7 @@ const App=()=>{
     const uid=workspaceOwnerUid;
     const u1=onSnapshot(collection(db,'ugrup',uid,'transactions'),snap=>{setTxns(snap.docs.map(d=>({id:d.id,...d.data()})));setCs('synced');},()=>setCs('error'));
     const u2=onSnapshot(collection(db,'ugrup',uid,'entities'),snap=>{
-      if(!snap.empty)setEntities(snap.docs.map(d=>({id:d.id,...d.data()})));
-      else if(isOwner){const ie=[{id:'e-1',name:'Empresa Matriz',type:'company'},{id:'c-1',name:'Cartão Principal',type:'card'}];ie.forEach(e=>setDoc(doc(db,'ugrup',uid,'entities',e.id),e));}
+      setEntities(snap.docs.map(d=>({id:d.id,...d.data()})));
     });
     const u3=onSnapshot(collection(db,'ugrup',uid,'categories'),snap=>{
       if(!snap.empty)setCats(snap.docs.map(d=>({id:d.id,...d.data()})));
@@ -1793,31 +1792,54 @@ const App=()=>{
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Nome da Empresa</label>
                 <input type="text" value={profileForm.companyName} onChange={e=>setProfileForm({...profileForm,companyName:e.target.value})} placeholder="Nome da sua empresa" className={inp}/>
-                <div className={`mt-3 p-3.5 rounded-xl border ${th('bg-slate-50 border-slate-200','bg-slate-800 border-slate-700')}`}>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Adicionar Empresa</p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={profileForm.newEntityName||''}
-                      onChange={e=>setProfileForm({...profileForm,newEntityName:e.target.value})}
-                      placeholder="Nome da nova empresa"
-                      className={inp+' flex-1'}
-                    />
-                    <button
-                      type="button"
-                      onClick={()=>{
-                        const name=(profileForm.newEntityName||'').trim();
-                        if(!name)return;
-                        const id=`ent-${Date.now()}`;
-                        sv('entities',id,{id,name,type:'company'});
-                        setProfileForm({...profileForm,newEntityName:''});
-                        setProfileMsg('ok:Empresa adicionada em Contas & Unidades!');
-                      }}
-                      className="px-3 py-2 bg-[#1D6FA4] hover:bg-[#155D8A] text-white rounded-xl text-xs font-semibold shrink-0 flex items-center gap-1"
-                    ><Ic n="plus" s={13}/> Adicionar</button>
-                  </div>
-                  <p className={`text-[10px] mt-2 ${th('text-slate-400','text-slate-500')}`}>A empresa será criada em Contas &amp; Unidades automaticamente.</p>
-                </div>
+                {(()=>{
+                  const extraEmpresas=entities.filter(e=>e.type==='company');
+                  const atLimit=extraEmpresas.length>=2;
+                  return(
+                    <div className={`mt-3 p-3.5 rounded-xl border ${th('bg-slate-50 border-slate-200','bg-slate-800 border-slate-700')}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Empresas Adicionais</p>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${atLimit?th('bg-rose-100 text-rose-600','bg-rose-500/20 text-rose-400'):th('bg-slate-200 text-slate-500','bg-slate-700 text-slate-400')}`}>{extraEmpresas.length}/2</span>
+                      </div>
+                      {extraEmpresas.length>0&&(
+                        <div className="space-y-1.5 mb-2.5">
+                          {extraEmpresas.map(e=>(
+                            <div key={e.id} className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${th('bg-white border-slate-200','bg-slate-900 border-slate-700')}`}>
+                              <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${th('bg-blue-50 text-blue-500','bg-blue-500/10 text-blue-400')}`}><Ic n="bd" s={11}/></div>
+                              <span className={`text-xs font-semibold flex-1 truncate ${th('text-slate-700','text-slate-200')}`}>{e.name}</span>
+                              <button type="button" onClick={()=>rm('entities',e.id)} className={`p-1 rounded-lg shrink-0 ${th('hover:bg-rose-50 text-slate-400 hover:text-rose-500','hover:bg-rose-500/10 text-slate-500 hover:text-rose-400')}`}><Ic n="tr" s={12}/></button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {!atLimit?(
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={profileForm.newEntityName||''}
+                            onChange={e=>setProfileForm({...profileForm,newEntityName:e.target.value})}
+                            placeholder="Nome da nova empresa"
+                            className={inp+' flex-1'}
+                          />
+                          <button
+                            type="button"
+                            onClick={()=>{
+                              const name=(profileForm.newEntityName||'').trim();
+                              if(!name||atLimit)return;
+                              const id=`ent-${Date.now()}`;
+                              sv('entities',id,{id,name,type:'company'});
+                              setProfileForm(f=>({...f,newEntityName:''}));
+                            }}
+                            className="px-3 py-2 bg-[#1D6FA4] hover:bg-[#155D8A] text-white rounded-xl text-xs font-semibold shrink-0 flex items-center gap-1"
+                          ><Ic n="plus" s={13}/> Adicionar</button>
+                        </div>
+                      ):(
+                        <p className={`text-[10px] text-center py-1.5 font-semibold ${th('text-rose-500','text-rose-400')}`}>Limite de 2 empresas adicionais atingido. Remova uma para adicionar outra.</p>
+                      )}
+                      <p className={`text-[10px] mt-2 ${th('text-slate-400','text-slate-500')}`}>Criadas automaticamente em Contas &amp; Unidades.</p>
+                    </div>
+                  );
+                })()}
               </div>
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">E-mail</label>
