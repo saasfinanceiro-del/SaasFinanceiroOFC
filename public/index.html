@@ -265,6 +265,10 @@ const App=()=>{
   const[showTaxaModal,setShowTaxaModal]=useState(false);
   const[impostoForm,setImpostoForm]=useState({nome:'',aliquota:'',regra:'faturamento'});
   const[taxaForm,setTaxaForm]=useState({nome:'',regra:'comissao',formaPagamento:'todas',tipo:'percentual',valor:''});
+  const[custos,setCustos]=useState([]);
+  const[showCustoModal,setShowCustoModal]=useState(false);
+  const[editCustoId,setEditCustoId]=useState(null);
+  const[custoForm,setCustoForm]=useState({nome:'',custo:''});
 
   const isOwner=userRole==='owner';
   const canWrite=['owner','admin','analista'].includes(userRole);
@@ -384,7 +388,8 @@ const App=()=>{
     if(isOwner){u6=onSnapshot(collection(db,'ugrup',uid,'members'),snap=>{setWorkspaceMembers(snap.docs.map(d=>({id:d.id,...d.data()})));});}
     const u7=onSnapshot(collection(db,'ugrup',uid,'impostos'),snap=>{setImpostos(snap.docs.map(d=>({id:d.id,...d.data()})));});
     const u8=onSnapshot(collection(db,'ugrup',uid,'taxas'),snap=>{setTaxas(snap.docs.map(d=>({id:d.id,...d.data()})));});
-    return()=>{u1();u2();u3();u4();u5();u5b();u6();u7();u8();};
+    const u9=onSnapshot(collection(db,'ugrup',uid,'custos'),snap=>{setCustos(snap.docs.map(d=>({id:d.id,...d.data()})));});
+    return()=>{u1();u2();u3();u4();u5();u5b();u6();u7();u8();u9();};
   },[user,fbReady,workspaceOwnerUid,isOwner]);
 
   const sv=async(col,id,data)=>{if(!user||!fbReady||!workspaceOwnerUid)return;setCs('syncing');try{const{doc,setDoc}=window.__fb;await setDoc(doc(window.__db,'ugrup',workspaceOwnerUid,col,String(id)),data);setCs('synced');}catch{setCs('error');}};
@@ -495,7 +500,29 @@ const App=()=>{
     if(catFilter)out=out.filter(t=>t.category===catFilter);
     return out;
   },[dItems,srch,catFilter]);
-  const dSt=useMemo(()=>{const pI=dItems.filter(t=>t.type==='income'&&t.status==='paid').reduce((a,t)=>a+t.amount,0);const pO=dItems.filter(t=>t.type==='expense'&&t.status==='paid').reduce((a,t)=>a+t.amount,0);const peI=dItems.filter(t=>t.type==='income'&&t.status==='pending').reduce((a,t)=>a+t.amount,0);const peO=dItems.filter(t=>t.type==='expense'&&t.status==='pending').reduce((a,t)=>a+t.amount,0);const tot=pI+pO;return{pI,pO,peI,peO,bal:pI-pO,exp:(pI-pO)+(peI-peO),iP:tot?pI/tot*100:0,oP:tot?pO/tot*100:0};},[dItems]);
+  /* ── Tax deductions ── */
+  const taxTotal=useMemo(()=>{
+    const pI=dItems.filter(t=>t.type==='income'&&t.status==='paid').reduce((a,t)=>a+t.amount,0);
+    const pIpend=dItems.filter(t=>t.type==='income'&&t.status==='pending').reduce((a,t)=>a+t.amount,0);
+    // Sum all impostos aliquotas (%)
+    const impostoRate=impostos.reduce((a,imp)=>a+parseFloat(imp.aliquota||0),0)/100;
+    // Sum all taxas: percentual on income, fixo per transaction
+    const taxaRate=taxas.filter(t=>t.tipo==='percentual').reduce((a,tx)=>a+parseFloat(tx.valor||0),0)/100;
+    const taxaFixoPaid=taxas.filter(t=>t.tipo==='fixo').length*dItems.filter(t=>t.type==='income'&&t.status==='paid').length*taxas.filter(t=>t.tipo==='fixo').reduce((a,tx)=>a+parseFloat(tx.valor||0),0);
+    const dedPaid=pI*(impostoRate+taxaRate)+taxaFixoPaid;
+    const dedPend=pIpend*(impostoRate+taxaRate);
+    return{dedPaid:Math.round(dedPaid*100)/100,dedPend:Math.round(dedPend*100)/100,rate:Math.round((impostoRate+taxaRate)*10000)/100};
+  },[dItems,impostos,taxas]);
+  const dSt=useMemo(()=>{
+    const pI=dItems.filter(t=>t.type==='income'&&t.status==='paid').reduce((a,t)=>a+t.amount,0);
+    const pO=dItems.filter(t=>t.type==='expense'&&t.status==='paid').reduce((a,t)=>a+t.amount,0);
+    const peI=dItems.filter(t=>t.type==='income'&&t.status==='pending').reduce((a,t)=>a+t.amount,0);
+    const peO=dItems.filter(t=>t.type==='expense'&&t.status==='pending').reduce((a,t)=>a+t.amount,0);
+    const tot=pI+pO;
+    const ded=taxTotal.dedPaid;
+    const dedPend=taxTotal.dedPend;
+    return{pI,pO,peI,peO,ded,dedPend,bal:pI-pO-ded,exp:(pI-pO-ded)+(peI-peO-dedPend),iP:tot?pI/tot*100:0,oP:tot?pO/tot*100:0};
+  },[dItems,taxTotal]);
   /* FIX 10: only real paid transactions — never virtual */
   const gBal=useMemo(()=>txns.filter(t=>t.status==='paid'&&!t.isVirtual).reduce((a,t)=>a+(t.type==='income'?t.amount:-t.amount),0),[txns]);
 
@@ -909,6 +936,7 @@ const App=()=>{
               </div>
               <span className="hidden lg:block">{it.l}</span>
               {it.id==='forecast'&&ovItems.length>0&&<span className="hidden lg:flex ml-auto w-4 h-4 rounded-full bg-rose-500 text-white text-[8px] font-bold items-center justify-center">{ovItems.length}</span>}
+              {it.id==='impostos'&&(impostos.length>0||taxas.length>0)&&<span className="hidden lg:flex ml-auto items-center gap-0.5 bg-amber-100 text-amber-600 text-[8px] font-bold px-1.5 py-0.5 rounded-full border border-amber-200"><Ic n="pct" s={8}/>{impostos.length+taxas.length}</span>}
             </button>
           ))}
         </nav>
@@ -992,7 +1020,7 @@ const App=()=>{
               {[
                 {l:'Receitas Efetivadas',v:dSt.pI,c:'emerald',ic:'up',sub:`+ R$ ${fM(dSt.peI)} previsto`},
                 {l:'Despesas Efetivadas',v:dSt.pO,c:'rose',ic:'dn',sub:`+ R$ ${fM(dSt.peO)} previsto`},
-                {l:'Saldo Realizado',v:dSt.bal,c:'indigo',ic:'ac',sub:'Receitas − Despesas'},
+                {l:'Saldo Realizado',v:dSt.bal,c:'indigo',ic:'ac',sub:'Líquido após impostos'},
                 {l:'Fechamento Estimado',v:dSt.exp,dark:true,ic:'sp',sub:'Incluindo pendentes'},
               ].map((k,i)=>(
                 <div key={i} className={`p-4 rounded-xl border flex flex-col gap-3 card-hover ${k.dark?'bg-[#1D6FA4] text-white border-[#1D6FA4]':th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
@@ -1011,13 +1039,52 @@ const App=()=>{
               ))}
             </div>
 
+            {/* Card Impostos & Taxas — só aparece se houver impostos/taxas configurados */}
+            {(impostos.length>0||taxas.length>0)&&(
+              <div className={`p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${th('bg-amber-50 border-amber-200','bg-amber-500/10 border-amber-500/30')}`}>
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${th('bg-amber-100 text-amber-600','bg-amber-500/20 text-amber-400')}`}><Ic n="pct" s={18}/></div>
+                  <div>
+                    <p className={`text-xs font-bold uppercase tracking-wide ${th('text-amber-700','text-amber-400')}`}>Impostos &amp; Taxas do Mês</p>
+                    <p className={`text-[10px] mt-0.5 ${th('text-amber-600','text-amber-500')}`}>
+                      {taxTotal.rate>0?`Alíquota total: ${taxTotal.rate}% sobre receitas`:'Taxas fixas aplicadas'}
+                      {dSt.dedPend>0?` · + R$ ${fM(dSt.dedPend)} previsto`:''}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="flex items-baseline gap-1 justify-end">
+                    <span className={`text-xs font-semibold ${th('text-amber-600','text-amber-400')}`}>- R$</span>
+                    <span className={`text-2xl font-bold ${th('text-amber-700','text-amber-300')}`} style={{fontFamily:'var(--font-display)'}}>{fM(dSt.ded)}</span>
+                  </div>
+                  <p className={`text-[10px] ${th('text-amber-500','text-amber-500')}`}>deduzido das receitas</p>
+                </div>
+                <div className={`w-full sm:w-auto flex flex-wrap gap-2`}>
+                  {impostos.map(imp=>(
+                    <span key={imp.id} className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg border ${th('bg-white border-amber-200 text-amber-700','bg-amber-500/10 border-amber-500/30 text-amber-300')}`}>
+                      {imp.nome} {imp.aliquota}%
+                    </span>
+                  ))}
+                  {taxas.map(tx=>(
+                    <span key={tx.id} className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg border ${th('bg-white border-amber-200 text-amber-700','bg-amber-500/10 border-amber-500/30 text-amber-300')}`}>
+                      {tx.nome} {tx.tipo==='percentual'?tx.valor+'%':'R$ '+tx.valor}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Termômetro + Donut */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               {/* Termômetro */}
               <div className={`p-5 rounded-xl border ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
                 <p className={`text-xs font-semibold uppercase tracking-wide mb-4 ${th('text-slate-500','text-slate-400')}`}>Distribuição do Mês</p>
                 <div className="space-y-3">
-                  {[{l:'Receitas',v:dSt.pI,color:'bg-emerald-500',pct:dSt.iP},{l:'Despesas',v:dSt.pO,color:'bg-rose-500',pct:dSt.oP}].map((b,i)=>(
+                  {[
+                    {l:'Receitas',v:dSt.pI,color:'bg-emerald-500',pct:dSt.iP},
+                    {l:'Despesas',v:dSt.pO,color:'bg-rose-500',pct:dSt.oP},
+                    ...(dSt.ded>0?[{l:'Impostos & Taxas',v:dSt.ded,color:'bg-amber-400',pct:(dSt.pI+dSt.pO)?dSt.ded/(dSt.pI+dSt.pO)*100:0}]:[]),
+                  ].map((b,i)=>(
                     <div key={i}>
                       <div className="flex justify-between items-center mb-1.5">
                         <span className={`text-xs font-medium ${th('text-slate-600','text-slate-300')}`}>{b.l}</span>
@@ -1325,69 +1392,160 @@ const App=()=>{
         {/* ══ IMPOSTOS ══ */}
         {tab==='impostos'&&(
           <div className="space-y-6 ai pb-10 max-w-3xl">
+
+            {/* ─ Header com ícone ─ */}
+            <div className={`flex items-center gap-3 px-1`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${th('bg-amber-100 text-amber-600','bg-amber-500/20 text-amber-400')}`}><Ic n="pct" s={20}/></div>
+              <div>
+                <p className={`text-base font-bold ${th('text-slate-800','text-white')}`}>Impostos &amp; Taxas</p>
+                <p className={`text-xs ${th('text-slate-400','text-slate-500')}`}>Configure encargos e calcule a margem real dos seus produtos.</p>
+              </div>
+            </div>
+
+            {/* ─ Card Imposto ─ */}
             <div className={`rounded-2xl border overflow-hidden ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
               <div className={`flex items-center justify-between px-6 py-4 border-b ${th('border-slate-100','border-slate-800')}`}>
-                <div>
-                  <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Imposto</h3>
-                  <p className={`text-xs mt-0.5 ${th('text-slate-400','text-slate-500')}`}>Configure o imposto dos seus produtos.</p>
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${th('bg-amber-100 text-amber-600','bg-amber-500/20 text-amber-400')}`}><Ic n="pct" s={14}/></div>
+                  <div>
+                    <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Imposto</h3>
+                    <p className={`text-xs ${th('text-slate-400','text-slate-500')}`}>Alíquotas sobre receita/faturamento.</p>
+                  </div>
                 </div>
                 <button onClick={()=>{setImpostoForm({nome:'',aliquota:'',regra:'faturamento'});setShowImpostoModal(true);}} className="flex items-center gap-2 bg-[#1D6FA4] text-white px-3.5 py-2 rounded-xl text-xs font-semibold"><Ic n="plus" s={13}/> Adicionar Imposto</button>
               </div>
               {impostos.length===0?(
-                <div className={`flex flex-col items-center justify-center py-12 ${th('text-slate-400','text-slate-500')}`}>
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${th('bg-slate-100','bg-slate-800')}`}><Ic n="pct" s={22}/></div>
-                  <p className="text-sm font-semibold">Nenhum imposto configurado</p>
+                <div className={`flex flex-col items-center justify-center py-10 ${th('text-slate-400','text-slate-500')}`}>
+                  <Ic n="pct" s={28}/><p className="text-sm font-semibold mt-3">Nenhum imposto configurado</p>
                   <p className="text-xs mt-1">Adicione um imposto para começar.</p>
                 </div>
               ):(
                 <div className={`divide-y ${th('divide-slate-100','divide-slate-800')}`}>
                   {impostos.map(imp=>(
-                    <div key={imp.id} className={`flex items-start justify-between px-6 py-4 transition-colors ${th('hover:bg-slate-50','hover:bg-slate-800/50')}`}>
-                      <div className="flex items-start gap-3">
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${th('bg-amber-50 text-amber-500','bg-amber-500/10 text-amber-400')}`}><Ic n="pct" s={16}/></div>
+                    <div key={imp.id} className={`flex items-center justify-between px-6 py-4 transition-colors ${th('hover:bg-slate-50','hover:bg-slate-800/50')}`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${th('bg-amber-50 text-amber-500','bg-amber-500/10 text-amber-400')}`}><Ic n="pct" s={14}/></div>
                         <div>
                           <p className={`text-sm font-semibold ${th('text-slate-800','text-slate-100')}`}>{imp.nome}</p>
-                          <p className={`text-xs mt-0.5 ${th('text-slate-400','text-slate-500')}`}>Alíquota: {imp.aliquota}%</p>
-                          <p className={`text-xs ${th('text-slate-400','text-slate-500')}`}>Calculado sobre o {imp.regra==='faturamento'?'valor de faturamento':'valor de comissão'}.</p>
+                          <p className={`text-xs ${th('text-slate-400','text-slate-500')}`}>Alíquota: <span className="font-bold text-amber-500">{imp.aliquota}%</span> · {imp.regra==='faturamento'?'Sobre faturamento':'Sobre comissão'}</p>
                         </div>
                       </div>
-                      <button onClick={()=>rm('impostos',imp.id)} className={`p-1.5 rounded-lg shrink-0 ml-3 ${th('hover:bg-rose-50 text-slate-400 hover:text-rose-500','hover:bg-rose-500/10 text-slate-500 hover:text-rose-400')}`}><Ic n="tr" s={14}/></button>
+                      <button onClick={()=>rm('impostos',imp.id)} className={`p-1.5 rounded-lg ${th('hover:bg-rose-50 text-slate-300 hover:text-rose-500','hover:bg-rose-500/10 text-slate-600 hover:text-rose-400')}`}><Ic n="tr" s={14}/></button>
                     </div>
                   ))}
                 </div>
               )}
             </div>
+
+            {/* ─ Card Taxas ─ */}
             <div className={`rounded-2xl border overflow-hidden ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
               <div className={`flex items-center justify-between px-6 py-4 border-b ${th('border-slate-100','border-slate-800')}`}>
-                <div>
-                  <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Taxas</h3>
-                  <p className={`text-xs mt-0.5 ${th('text-slate-400','text-slate-500')}`}>Configure taxas adicionais.</p>
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${th('bg-indigo-100 text-indigo-500','bg-indigo-500/20 text-indigo-400')}`}><Ic n="wallet" s={14}/></div>
+                  <div>
+                    <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Taxas</h3>
+                    <p className={`text-xs ${th('text-slate-400','text-slate-500')}`}>Taxas fixas ou percentuais por venda.</p>
+                  </div>
                 </div>
                 <button onClick={()=>{setTaxaForm({nome:'',regra:'comissao',formaPagamento:'todas',tipo:'percentual',valor:''});setShowTaxaModal(true);}} className="flex items-center gap-2 bg-[#1D6FA4] text-white px-3.5 py-2 rounded-xl text-xs font-semibold"><Ic n="plus" s={13}/> Adicionar Taxa</button>
               </div>
               {taxas.length===0?(
-                <div className={`flex flex-col items-center justify-center py-12 ${th('text-slate-400','text-slate-500')}`}>
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${th('bg-slate-100','bg-slate-800')}`}><Ic n="wallet" s={22}/></div>
-                  <p className="text-sm font-semibold">Nenhuma taxa configurada</p>
+                <div className={`flex flex-col items-center justify-center py-10 ${th('text-slate-400','text-slate-500')}`}>
+                  <Ic n="wallet" s={28}/><p className="text-sm font-semibold mt-3">Nenhuma taxa configurada</p>
                   <p className="text-xs mt-1">Adicione uma taxa para começar.</p>
                 </div>
               ):(
                 <div className={`divide-y ${th('divide-slate-100','divide-slate-800')}`}>
                   {taxas.map(tx=>(
-                    <div key={tx.id} className={`flex items-start justify-between px-6 py-4 transition-colors ${th('hover:bg-slate-50','hover:bg-slate-800/50')}`}>
-                      <div className="flex items-start gap-3">
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${th('bg-indigo-50 text-indigo-500','bg-indigo-500/10 text-indigo-400')}`}><Ic n="wallet" s={16}/></div>
+                    <div key={tx.id} className={`flex items-center justify-between px-6 py-4 transition-colors ${th('hover:bg-slate-50','hover:bg-slate-800/50')}`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${th('bg-indigo-50 text-indigo-500','bg-indigo-500/10 text-indigo-400')}`}><Ic n="wallet" s={14}/></div>
                         <div>
                           <p className={`text-sm font-semibold ${th('text-slate-800','text-slate-100')}`}>{tx.nome}</p>
-                          <p className={`text-xs mt-0.5 ${th('text-slate-400','text-slate-500')}`}>{tx.tipo==='percentual'?tx.valor+'%':'R$ '+tx.valor} · {tx.formaPagamento==='todas'?'Todas as formas':tx.formaPagamento} · {tx.regra==='comissao'?'Comissão':'Faturamento'}</p>
+                          <p className={`text-xs ${th('text-slate-400','text-slate-500')}`}><span className="font-bold text-indigo-500">{tx.tipo==='percentual'?tx.valor+'%':'R$ '+tx.valor}</span> · {tx.formaPagamento==='todas'?'Todas as formas':tx.formaPagamento} · {tx.regra==='comissao'?'Comissão':'Faturamento'}</p>
                         </div>
                       </div>
-                      <button onClick={()=>rm('taxas',tx.id)} className={`p-1.5 rounded-lg shrink-0 ml-3 ${th('hover:bg-rose-50 text-slate-400 hover:text-rose-500','hover:bg-rose-500/10 text-slate-500 hover:text-rose-400')}`}><Ic n="tr" s={14}/></button>
+                      <button onClick={()=>rm('taxas',tx.id)} className={`p-1.5 rounded-lg ${th('hover:bg-rose-50 text-slate-300 hover:text-rose-500','hover:bg-rose-500/10 text-slate-600 hover:text-rose-400')}`}><Ic n="tr" s={14}/></button>
                     </div>
                   ))}
                 </div>
               )}
             </div>
+
+            {/* ─ Card Custo de Produtos ─ */}
+            <div className={`rounded-2xl border overflow-hidden ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
+              <div className={`flex items-center justify-between px-6 py-4 border-b ${th('border-slate-100','border-slate-800')}`}>
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${th('bg-emerald-100 text-emerald-600','bg-emerald-500/20 text-emerald-400')}`}><Ic n="tag" s={14}/></div>
+                  <div>
+                    <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Custo de Produtos</h3>
+                    <p className={`text-xs ${th('text-slate-400','text-slate-500')}`}>Configure o custo dos seus produtos.</p>
+                  </div>
+                </div>
+                <button onClick={()=>{setEditCustoId(null);setCustoForm({nome:'',custo:''});setShowCustoModal(true);}} className="flex items-center gap-2 bg-[#1D6FA4] text-white px-3.5 py-2 rounded-xl text-xs font-semibold"><Ic n="plus" s={13}/> Editar Custos</button>
+              </div>
+              {custos.length===0?(
+                <div className={`flex flex-col items-center justify-center py-10 ${th('text-slate-400','text-slate-500')}`}>
+                  <Ic n="tag" s={28}/><p className="text-sm font-semibold mt-3">Nenhum produto cadastrado</p>
+                  <p className="text-xs mt-1">Adicione produtos para calcular a margem de lucro.</p>
+                </div>
+              ):(
+                <div className={`divide-y ${th('divide-slate-100','divide-slate-800')}`}>
+                  {custos.map(prod=>{
+                    const totalRate=(impostos.reduce((a,i)=>a+parseFloat(i.aliquota||0),0)+taxas.filter(t=>t.tipo==='percentual').reduce((a,t)=>a+parseFloat(t.valor||0),0))/100;
+                    const taxFixa=taxas.filter(t=>t.tipo==='fixo').reduce((a,t)=>a+parseFloat(t.valor||0),0);
+                    const preco=parseFloat(prod.preco||0);
+                    const custo=parseFloat(prod.custo||0);
+                    const encargos=preco*totalRate+taxFixa;
+                    const lucro=preco-custo-encargos;
+                    const margem=preco>0?(lucro/preco*100):0;
+                    return(
+                      <div key={prod.id} className={`px-6 py-4 transition-colors ${th('hover:bg-slate-50','hover:bg-slate-800/50')}`}>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${th('bg-emerald-50 text-emerald-600','bg-emerald-500/10 text-emerald-400')}`}><Ic n="tag" s={14}/></div>
+                            <p className={`text-sm font-semibold ${th('text-slate-800','text-slate-100')}`}>{prod.nome}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${margem>=0?th('bg-emerald-100 text-emerald-700','bg-emerald-500/20 text-emerald-400'):th('bg-rose-100 text-rose-700','bg-rose-500/20 text-rose-400')}`}>{margem>=0?'+':''}{margem.toFixed(1)}% margem</span>
+                            <button onClick={()=>{setEditCustoId(prod.id);setCustoForm({nome:prod.nome,preco:prod.preco||'',custo:prod.custo||''});setShowCustoModal(true);}} className={`p-1.5 rounded-lg ${th('hover:bg-slate-100 text-slate-400','hover:bg-slate-700 text-slate-500')}`}><Ic n="pn" s={13}/></button>
+                            <button onClick={()=>rm('custos',prod.id)} className={`p-1.5 rounded-lg ${th('hover:bg-rose-50 text-slate-300 hover:text-rose-500','hover:bg-rose-500/10 text-slate-600 hover:text-rose-400')}`}><Ic n="tr" s={13}/></button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2">
+                          {[
+                            {l:'Preço de Venda',v:'R$ '+fM(preco),c:th('text-slate-700','text-slate-200')},
+                            {l:'Custo do Produto',v:'- R$ '+fM(custo),c:'text-rose-500'},
+                            {l:'Impostos & Taxas',v:'- R$ '+fM(encargos),c:'text-amber-500'},
+                            {l:'Lucro Líquido',v:(lucro>=0?'R$ ':'- R$ ')+fM(Math.abs(lucro)),c:lucro>=0?'text-emerald-500':'text-rose-500'},
+                          ].map((item,idx)=>(
+                            <div key={idx} className={`p-2.5 rounded-xl border text-center ${th('bg-slate-50 border-slate-100','bg-slate-800 border-slate-700')}`}>
+                              <p className={`text-[9px] font-bold uppercase tracking-wide mb-1 ${th('text-slate-400','text-slate-500')}`}>{item.l}</p>
+                              <p className={`text-xs font-bold ${item.c}`}>{item.v}</p>
+                            </div>
+                          ))}
+                        </div>
+                        {preco>0&&(
+                          <div className={`mt-2.5 h-2 rounded-full overflow-hidden ${th('bg-slate-100','bg-slate-700')}`}>
+                            <div className="h-full flex rounded-full overflow-hidden">
+                              <div className="bg-rose-400 transition-all" style={{width:preco>0?Math.min(custo/preco*100,100)+'%':'0%'}} title={'Custo: '+fM(custo)}></div>
+                              <div className="bg-amber-400 transition-all" style={{width:preco>0?Math.min(encargos/preco*100,100)+'%':'0%'}} title={'Encargos: '+fM(encargos)}></div>
+                              <div className={`transition-all ${lucro>=0?'bg-emerald-400':'bg-rose-600'}`} style={{width:preco>0?Math.min(Math.max(lucro/preco*100,0),100)+'%':'0%'}} title={'Lucro: '+fM(lucro)}></div>
+                            </div>
+                          </div>
+                        )}
+                        <div className={`flex gap-4 mt-1.5 text-[9px] font-semibold ${th('text-slate-400','text-slate-500')}`}>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-400 inline-block"></span>Custo</span>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>Impostos/Taxas</span>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>Lucro Líquido</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
           </div>
         )}
 
@@ -1716,6 +1874,71 @@ const App=()=>{
       )}
 
       {/* Modal Entidade */}
+      {/* Modal Custo de Produto */}
+      {showCustoModal&&(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className={`rounded-2xl shadow-2xl w-full max-w-sm p-6 ai ${th('bg-white','bg-slate-900')}`}>
+            <div className={`flex justify-between items-center mb-4 pb-4 border-b ${th('border-slate-100','border-slate-800')}`}>
+              <div className="flex items-center gap-2">
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${th('bg-emerald-100 text-emerald-600','bg-emerald-500/20 text-emerald-400')}`}><Ic n="tag" s={14}/></div>
+                <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>{editCustoId?'Editar Produto':'Novo Produto'}</h3>
+              </div>
+              <button onClick={()=>setShowCustoModal(false)} className={`p-1.5 rounded-lg ${th('hover:bg-slate-100 text-slate-500','hover:bg-slate-800 text-slate-400')}`}><Ic n="x" s={16}/></button>
+            </div>
+            <form onSubmit={e=>{e.preventDefault();const id=editCustoId||'custo-'+Date.now();sv('custos',id,{id,...custoForm});setShowCustoModal(false);setEditCustoId(null);}} className="space-y-4">
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Nome do Produto</label>
+                <input required type="text" value={custoForm.nome} onChange={e=>setCustoForm({...custoForm,nome:e.target.value})} placeholder="Ex: Acesso Mensal" className={inp}/>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Preço de Venda (R$)</label>
+                <input required type="number" step="0.01" min="0" value={custoForm.preco||''} onChange={e=>setCustoForm({...custoForm,preco:e.target.value})} placeholder="0,00" className={inp}/>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Custo do Produto (R$)</label>
+                <input required type="number" step="0.01" min="0" value={custoForm.custo} onChange={e=>setCustoForm({...custoForm,custo:e.target.value})} placeholder="0,00" className={inp}/>
+              </div>
+              {(()=>{
+                const totalRate=(impostos.reduce((a,i)=>a+parseFloat(i.aliquota||0),0)+taxas.filter(t=>t.tipo==='percentual').reduce((a,t)=>a+parseFloat(t.valor||0),0))/100;
+                const taxFixa=taxas.filter(t=>t.tipo==='fixo').reduce((a,t)=>a+parseFloat(t.valor||0),0);
+                const preco=parseFloat(custoForm.preco||0);
+                const custo=parseFloat(custoForm.custo||0);
+                const encargos=preco*totalRate+taxFixa;
+                const lucro=preco-custo-encargos;
+                const margem=preco>0?(lucro/preco*100):0;
+                if(!preco&&!custo) return null;
+                return(
+                  <div className={`p-3.5 rounded-xl border ${th('bg-slate-50 border-slate-200','bg-slate-800 border-slate-700')}`}>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2.5">Prévia da Margem</p>
+                    <div className="space-y-1.5">
+                      {[
+                        {l:'Preço de venda',v:'R$ '+fM(preco),c:th('text-slate-700','text-slate-200')},
+                        {l:'Custo do produto',v:'- R$ '+fM(custo),c:'text-rose-500'},
+                        {l:'Impostos & Taxas ('+Math.round(totalRate*100)+'%)',v:'- R$ '+fM(encargos),c:'text-amber-500'},
+                      ].map((row,i)=>(
+                        <div key={i} className="flex justify-between items-center">
+                          <span className={`text-xs ${th('text-slate-500','text-slate-400')}`}>{row.l}</span>
+                          <span className={`text-xs font-bold ${row.c}`}>{row.v}</span>
+                        </div>
+                      ))}
+                      <div className={`flex justify-between items-center pt-2 mt-1 border-t ${th('border-slate-200','border-slate-700')}`}>
+                        <span className="text-xs font-bold" style={{color:dark?'white':'#0f172a'}}>Lucro Líquido</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${margem>=0?th('bg-emerald-100 text-emerald-700','bg-emerald-500/20 text-emerald-400'):th('bg-rose-100 text-rose-600','bg-rose-500/20 text-rose-400')}`}>{margem>=0?'+':''}{margem.toFixed(1)}%</span>
+                          <span className={`text-sm font-bold ${lucro>=0?'text-emerald-500':'text-rose-500'}`}>{lucro>=0?'R$ ':'- R$ '}{fM(Math.abs(lucro))}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              <button type="submit" className="w-full bg-[#1D6FA4] hover:bg-[#155D8A] text-white py-2.5 rounded-xl text-xs font-semibold transition-all">Salvar Produto</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+
       {/* Modal Imposto */}
       {showImpostoModal&&(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
