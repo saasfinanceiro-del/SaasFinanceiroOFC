@@ -125,7 +125,6 @@ const Ic=({n,s=18,c=''})=>{
     bank:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><line x1="3"y1="22"x2="21"y2="22"/><line x1="6"y1="18"x2="6"y2="11"/><line x1="10"y1="18"x2="10"y2="11"/><line x1="14"y1="18"x2="14"y2="11"/><line x1="18"y1="18"x2="18"y2="11"/><polygon points="12 2 20 7 4 7"/></svg>,
     editUser:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9"cy="7"r="4"/><path d="M23 11l-4.5 4.5-2-2L20 11l3 0z"/><path d="M16.5 15.5l-2-2"/></svg>,
     key:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>,
-    pct:<svg width={s}height={s}viewBox="0 0 24 24"{...p}className={c}><line x1="19"y1="5"x2="5"y2="19"/><circle cx="6.5"cy="6.5"r="2.5"/><circle cx="17.5"cy="17.5"r="2.5"/></svg>,
   };
   return m[n]||null;
 };
@@ -1323,12 +1322,9 @@ const App=()=>{
           </div>
         )}
 
-
         {/* ══ IMPOSTOS ══ */}
         {tab==='impostos'&&(
           <div className="space-y-6 ai pb-10 max-w-3xl">
-
-            {/* Card Imposto */}
             <div className={`rounded-2xl border overflow-hidden ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
               <div className={`flex items-center justify-between px-6 py-4 border-b ${th('border-slate-100','border-slate-800')}`}>
                 <div>
@@ -1344,15 +1340,15 @@ const App=()=>{
                   <p className="text-xs mt-1">Adicione um imposto para começar.</p>
                 </div>
               ):(
-                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                <div className={`divide-y ${th('divide-slate-100','divide-slate-800')}`}>
                   {impostos.map(imp=>(
-                    <div key={imp.id} className={`flex items-start justify-between px-6 py-4 ${th('hover:bg-slate-50','hover:bg-slate-800/50')} transition-colors`}>
+                    <div key={imp.id} className={`flex items-start justify-between px-6 py-4 transition-colors ${th('hover:bg-slate-50','hover:bg-slate-800/50')}`}>
                       <div className="flex items-start gap-3">
                         <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${th('bg-amber-50 text-amber-500','bg-amber-500/10 text-amber-400')}`}><Ic n="pct" s={16}/></div>
                         <div>
                           <p className={`text-sm font-semibold ${th('text-slate-800','text-slate-100')}`}>{imp.nome}</p>
                           <p className={`text-xs mt-0.5 ${th('text-slate-400','text-slate-500')}`}>Alíquota: {imp.aliquota}%</p>
-                          <p className={`text-xs ${th('text-slate-400','text-slate-500')}`}>Calculado automaticamente sobre o {imp.regra==='faturamento'?'valor de faturamento':'valor de comissão'}.</p>
+                          <p className={`text-xs ${th('text-slate-400','text-slate-500')}`}>Calculado sobre o {imp.regra==='faturamento'?'valor de faturamento':'valor de comissão'}.</p>
                         </div>
                       </div>
                       <button onClick={()=>rm('impostos',imp.id)} className={`p-1.5 rounded-lg shrink-0 ml-3 ${th('hover:bg-rose-50 text-slate-400 hover:text-rose-500','hover:bg-rose-500/10 text-slate-500 hover:text-rose-400')}`}><Ic n="tr" s={14}/></button>
@@ -1361,8 +1357,6 @@ const App=()=>{
                 </div>
               )}
             </div>
-
-            {/* Card Taxas */}
             <div className={`rounded-2xl border overflow-hidden ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
               <div className={`flex items-center justify-between px-6 py-4 border-b ${th('border-slate-100','border-slate-800')}`}>
                 <div>
@@ -1378,16 +1372,14 @@ const App=()=>{
                   <p className="text-xs mt-1">Adicione uma taxa para começar.</p>
                 </div>
               ):(
-                <div className="divide-y divide-slate-100">
+                <div className={`divide-y ${th('divide-slate-100','divide-slate-800')}`}>
                   {taxas.map(tx=>(
-                    <div key={tx.id} className={`flex items-start justify-between px-6 py-4 ${th('hover:bg-slate-50','hover:bg-slate-800/50')} transition-colors`}>
+                    <div key={tx.id} className={`flex items-start justify-between px-6 py-4 transition-colors ${th('hover:bg-slate-50','hover:bg-slate-800/50')}`}>
                       <div className="flex items-start gap-3">
                         <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${th('bg-indigo-50 text-indigo-500','bg-indigo-500/10 text-indigo-400')}`}><Ic n="wallet" s={16}/></div>
                         <div>
                           <p className={`text-sm font-semibold ${th('text-slate-800','text-slate-100')}`}>{tx.nome}</p>
-                          <p className={`text-xs mt-0.5 ${th('text-slate-400','text-slate-500')}`}>
-                            {tx.tipo==='percentual'?`${tx.valor}%`:`R$ ${tx.valor}`} · {tx.formaPagamento==='todas'?'Todas as formas':tx.formaPagamento} · Regra: {tx.regra==='comissao'?'Valor de Comissão':'Valor de Faturamento'}
-                          </p>
+                          <p className={`text-xs mt-0.5 ${th('text-slate-400','text-slate-500')}`}>{tx.tipo==='percentual'?tx.valor+'%':'R$ '+tx.valor} · {tx.formaPagamento==='todas'?'Todas as formas':tx.formaPagamento} · {tx.regra==='comissao'?'Comissão':'Faturamento'}</p>
                         </div>
                       </div>
                       <button onClick={()=>rm('taxas',tx.id)} className={`p-1.5 rounded-lg shrink-0 ml-3 ${th('hover:bg-rose-50 text-slate-400 hover:text-rose-500','hover:bg-rose-500/10 text-slate-500 hover:text-rose-400')}`}><Ic n="tr" s={14}/></button>
@@ -1396,7 +1388,6 @@ const App=()=>{
                 </div>
               )}
             </div>
-
           </div>
         )}
 
@@ -1725,34 +1716,30 @@ const App=()=>{
       )}
 
       {/* Modal Entidade */}
-      {showEntModal&&(
-
       {/* Modal Imposto */}
       {showImpostoModal&&(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className={`rounded-2xl shadow-2xl w-full max-w-sm p-6 ai ${th('bg-white','bg-slate-900')}`}>
             <div className={`flex justify-between items-center mb-4 pb-4 border-b ${th('border-slate-100','border-slate-800')}`}>
-              <div>
-                <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Adicionar Imposto</h3>
-              </div>
+              <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Adicionar Imposto</h3>
               <button onClick={()=>setShowImpostoModal(false)} className={`p-1.5 rounded-lg ${th('hover:bg-slate-100 text-slate-500','hover:bg-slate-800 text-slate-400')}`}><Ic n="x" s={16}/></button>
             </div>
-            <form onSubmit={e=>{e.preventDefault();const id=`imp-${Date.now()}`;sv('impostos',id,{id,...impostoForm});setShowImpostoModal(false);}} className="space-y-4">
+            <form onSubmit={e=>{e.preventDefault();const id='imp-'+Date.now();sv('impostos',id,{id,...impostoForm});setShowImpostoModal(false);}} className="space-y-4">
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Nome do Imposto</label>
                 <input required type="text" value={impostoForm.nome} onChange={e=>setImpostoForm({...impostoForm,nome:e.target.value})} placeholder="Ex: Imposto do Anúncio (Meta)" className={inp}/>
               </div>
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Regra de Cálculo</label>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-2">Regra de Cálculo</label>
                 <div className="flex gap-2">
-                  {[{v:'faturamento',l:'Valor de Faturamento'},{v:'comissao',l:'Valor de Comissão'}].map(op=>(
+                  {[{v:'faturamento',l:'Faturamento'},{v:'comissao',l:'Comissão'}].map(op=>(
                     <button key={op.v} type="button" onClick={()=>setImpostoForm({...impostoForm,regra:op.v})} className={`flex-1 py-2 rounded-xl font-semibold text-xs border transition-all ${impostoForm.regra===op.v?'border-[#1D6FA4] bg-[#E8F2FA] text-[#155D8A]':th('border-slate-200 text-slate-500 bg-slate-50','border-slate-700 text-slate-400 bg-slate-800')}`}>{op.l}</button>
                   ))}
                 </div>
               </div>
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Alíquota (%)</label>
-                <input required type="number" step="0.01" min="0" max="100" value={impostoForm.aliquota} onChange={e=>setImpostoForm({...impostoForm,aliquota:e.target.value})} placeholder="0,00%" className={inp}/>
+                <input required type="number" step="0.01" min="0" max="100" value={impostoForm.aliquota} onChange={e=>setImpostoForm({...impostoForm,aliquota:e.target.value})} placeholder="0,00" className={inp}/>
               </div>
               <button type="submit" className="w-full bg-[#1D6FA4] hover:bg-[#155D8A] text-white py-2.5 rounded-xl text-xs font-semibold transition-all">Adicionar Imposto</button>
             </form>
@@ -1765,34 +1752,32 @@ const App=()=>{
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className={`rounded-2xl shadow-2xl w-full max-w-sm p-6 ai ${th('bg-white','bg-slate-900')}`}>
             <div className={`flex justify-between items-center mb-4 pb-4 border-b ${th('border-slate-100','border-slate-800')}`}>
-              <div>
-                <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Adicionar Taxa</h3>
-              </div>
+              <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Adicionar Taxa</h3>
               <button onClick={()=>setShowTaxaModal(false)} className={`p-1.5 rounded-lg ${th('hover:bg-slate-100 text-slate-500','hover:bg-slate-800 text-slate-400')}`}><Ic n="x" s={16}/></button>
             </div>
-            <form onSubmit={e=>{e.preventDefault();const id=`taxa-${Date.now()}`;sv('taxas',id,{id,...taxaForm});setShowTaxaModal(false);}} className="space-y-4">
+            <form onSubmit={e=>{e.preventDefault();const id='taxa-'+Date.now();sv('taxas',id,{id,...taxaForm});setShowTaxaModal(false);}} className="space-y-4">
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Nome</label>
                 <input required type="text" value={taxaForm.nome} onChange={e=>setTaxaForm({...taxaForm,nome:e.target.value})} placeholder="Taxa adicional..." className={inp}/>
               </div>
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Regra de Cálculo</label>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-2">Regra de Cálculo</label>
                 <div className="flex gap-2">
-                  {[{v:'comissao',l:'Valor de Comissão'},{v:'faturamento',l:'Valor de Faturamento'}].map(op=>(
+                  {[{v:'comissao',l:'Comissão'},{v:'faturamento',l:'Faturamento'}].map(op=>(
                     <button key={op.v} type="button" onClick={()=>setTaxaForm({...taxaForm,regra:op.v})} className={`flex-1 py-2 rounded-xl font-semibold text-xs border transition-all ${taxaForm.regra===op.v?'border-[#1D6FA4] bg-[#E8F2FA] text-[#155D8A]':th('border-slate-200 text-slate-500 bg-slate-50','border-slate-700 text-slate-400 bg-slate-800')}`}>{op.l}</button>
                   ))}
                 </div>
               </div>
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Forma de Pagamento</label>
-                <div className="grid grid-cols-2 gap-2">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-2">Forma de Pagamento</label>
+                <div className="grid grid-cols-3 gap-2">
                   {[{v:'todas',l:'Todas'},{v:'credito',l:'Crédito'},{v:'debito',l:'Débito'},{v:'pix',l:'Pix'},{v:'boleto',l:'Boleto'},{v:'dinheiro',l:'Dinheiro'}].map(op=>(
                     <button key={op.v} type="button" onClick={()=>setTaxaForm({...taxaForm,formaPagamento:op.v})} className={`py-2 rounded-xl font-semibold text-xs border transition-all ${taxaForm.formaPagamento===op.v?'border-[#1D6FA4] bg-[#E8F2FA] text-[#155D8A]':th('border-slate-200 text-slate-500 bg-slate-50','border-slate-700 text-slate-400 bg-slate-800')}`}>{op.l}</button>
                   ))}
                 </div>
               </div>
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Tipo de Taxa</label>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-2">Tipo de Taxa</label>
                 <div className="flex gap-2">
                   {[{v:'percentual',l:'Porcentagem (%)'},{v:'fixo',l:'Valor Fixo (R$)'}].map(op=>(
                     <button key={op.v} type="button" onClick={()=>setTaxaForm({...taxaForm,tipo:op.v})} className={`flex-1 py-2 rounded-xl font-semibold text-xs border transition-all ${taxaForm.tipo===op.v?'border-[#1D6FA4] bg-[#E8F2FA] text-[#155D8A]':th('border-slate-200 text-slate-500 bg-slate-50','border-slate-700 text-slate-400 bg-slate-800')}`}>{op.l}</button>
@@ -1802,8 +1787,8 @@ const App=()=>{
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Taxa por venda</label>
                 <div className="relative">
-                  <span className={`absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold ${th('text-slate-400','text-slate-500')}`}>{taxaForm.tipo==='percentual'?'%':'R$'}</span>
-                  <input required type="number" step="0.01" min="0" value={taxaForm.valor} onChange={e=>setTaxaForm({...taxaForm,valor:e.target.value})} placeholder="0,00" className={inp+' pl-8'}/>
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">{taxaForm.tipo==='percentual'?'%':'R$'}</span>
+                  <input required type="number" step="0.01" min="0" value={taxaForm.valor} onChange={e=>setTaxaForm({...taxaForm,valor:e.target.value})} placeholder="0,00" className={inp+' pl-9'}/>
                 </div>
               </div>
               <button type="submit" className="w-full bg-[#1D6FA4] hover:bg-[#155D8A] text-white py-2.5 rounded-xl text-xs font-semibold transition-all">Adicionar Taxa</button>
@@ -1812,6 +1797,8 @@ const App=()=>{
         </div>
       )}
 
+
+      {showEntModal&&(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className={`rounded-2xl shadow-xl w-full max-w-sm p-6 ai ${th('bg-white','bg-slate-900')}`}>
             <div className={`flex justify-between items-center mb-4 pb-4 border-b ${th('border-slate-100','border-slate-800')}`}>
@@ -1988,27 +1975,11 @@ const App=()=>{
                       )}
                       {!atLimit?(
                         <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={profileForm.newEntityName||''}
-                            onChange={e=>setProfileForm({...profileForm,newEntityName:e.target.value})}
-                            placeholder="Nome da nova empresa"
-                            className={inp+' flex-1'}
-                          />
-                          <button
-                            type="button"
-                            onClick={()=>{
-                              const name=(profileForm.newEntityName||'').trim();
-                              if(!name||atLimit)return;
-                              const id=`ent-${Date.now()}`;
-                              sv('entities',id,{id,name,type:'company'});
-                              setProfileForm(f=>({...f,newEntityName:''}));
-                            }}
-                            className="px-3 py-2 bg-[#1D6FA4] hover:bg-[#155D8A] text-white rounded-xl text-xs font-semibold shrink-0 flex items-center gap-1"
-                          ><Ic n="plus" s={13}/> Adicionar</button>
+                          <input type="text" value={profileForm.newEntityName||''} onChange={e=>setProfileForm({...profileForm,newEntityName:e.target.value})} placeholder="Nome da nova empresa" className={inp+' flex-1'}/>
+                          <button type="button" onClick={()=>{const name=(profileForm.newEntityName||'').trim();if(!name||atLimit)return;const id=`ent-${Date.now()}`;sv('entities',id,{id,name,type:'company'});setProfileForm(f=>({...f,newEntityName:''}));}} className="px-3 py-2 bg-[#1D6FA4] hover:bg-[#155D8A] text-white rounded-xl text-xs font-semibold shrink-0 flex items-center gap-1"><Ic n="plus" s={13}/> Adicionar</button>
                         </div>
                       ):(
-                        <p className={`text-[10px] text-center py-1.5 font-semibold ${th('text-rose-500','text-rose-400')}`}>Limite de 2 empresas adicionais atingido. Remova uma para adicionar outra.</p>
+                        <p className={`text-[10px] text-center py-1.5 font-semibold ${th('text-rose-500','text-rose-400')}`}>Limite de 2 empresas atingido.</p>
                       )}
                       <p className={`text-[10px] mt-2 ${th('text-slate-400','text-slate-500')}`}>Criadas automaticamente em Contas &amp; Unidades.</p>
                     </div>
