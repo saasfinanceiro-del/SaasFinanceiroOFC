@@ -636,7 +636,7 @@ const App=()=>{
     return b.map(bk=>({...bk,total:bk.items.reduce((a,t)=>a+(t.type==='expense'?t.amount:-t.amount),0)}));
   },[ovItems]);
 
-  const inp=`w-full px-3.5 py-2.5 border rounded-xl font-medium text-sm outline-none focus:ring-2 focus:ring-[#1D6FA4] transition-all ${th('bg-slate-50 border-slate-200 text-slate-800 focus:bg-white','bg-slate-900 border-slate-700 text-slate-100')}`;
+  const inp=`w-full px-3.5 py-2.5 border rounded-xl font-medium text-sm outline-none focus:ring-2 focus:ring-white/50 transition-all bg-white/15 border-white/20 text-white placeholder-white/40 focus:bg-white/25`;
 
   /* TRow */
   const TRow=({t})=>{
@@ -719,69 +719,88 @@ const App=()=>{
   if(!user){
     const isLogin=authScreen==='login';
     return(
-      <div className={`min-h-screen flex items-center justify-center p-4 ${dark?'bg-slate-950':'bg-[#f1f4f9]'}`}>
-        <div className={`w-full max-w-sm rounded-2xl shadow-xl p-8 ${th('bg-white','bg-slate-900')}`}>
-          {/* Logo */}
-          <div className="flex flex-col items-center mb-8">
-            <div className="w-14 h-14 rounded-2xl bg-[#F0B429] flex items-center justify-center shadow-lg shadow-[#F0B429]/40 mb-3">
-              <span style={{display:'flex',flexDirection:'column',alignItems:'center',lineHeight:1}}>
-                  <span style={{fontFamily:"Plus Jakarta Sans,sans-serif",fontWeight:300,fontSize:"15px",color:"#1A3A5C",letterSpacing:"-0.5px"}}>R$</span>
-                  <span style={{fontFamily:"monospace",fontWeight:400,fontSize:"11px",color:"#1A3A5C",letterSpacing:"1px",marginTop:"-1px"}}>{"~>"}</span>
-                </span>
-            </div>
-            <p className="text-base font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Kontaê</p>
-            <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">Sistema de Gestão Financeira para empresas</p>
+      <div className={`min-h-screen flex flex-col items-center justify-center px-6 py-12 ${dark?'bg-[#0d2137]':'bg-[#1D6FA4]'}`}>
+
+        {/* ── Logo ── */}
+        <div className="flex flex-col items-center mb-10">
+          <div className="w-20 h-20 rounded-3xl flex items-center justify-center mb-4" style={{backgroundColor:'#F0B429',boxShadow:'0 8px 32px rgba(240,180,41,0.45)'}}>
+            <svg width="56" height="48" viewBox="0 0 40 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <text x="2" y="16" fontFamily="Plus Jakarta Sans, sans-serif" fontWeight="300" fontSize="16" fill="#1A3A5C" letterSpacing="-0.5">R$</text>
+              <path d="M3 27 Q8 22 13 27 Q18 32 23 27 Q28 22 33 27 L36 24" stroke="#1A3A5C" strokeWidth="1.8" strokeLinecap="round" fill="none"/>
+              <polyline points="32,22 36,24 33,28" stroke="#1A3A5C" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            </svg>
           </div>
+          <p className="text-3xl font-extrabold tracking-widest mb-1" style={{fontFamily:'var(--font-display)'}}>
+            <span style={{color:'white'}}>KONT</span><span style={{color:'#F0B429'}}>AÊ</span>
+          </p>
+          <p className="text-xs font-medium uppercase tracking-widest" style={{color:"rgba(255,255,255,0.65)"}}>Sistema de Gestão Financeira para Empresas</p>
+        </div>
+
+        {/* ── Card ── */}
+        <div className="w-full max-w-sm">
 
           {/* Tabs */}
-          <div className={`flex p-1 rounded-xl border mb-6 gap-1 ${th('bg-slate-50 border-slate-200','bg-slate-950 border-slate-700')}`}>
-            <button onClick={()=>{setAuthScreen('login');setAuthErr('');}} className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${isLogin?'bg-[#1D6FA4] text-white shadow-sm':th('text-slate-500','text-slate-400')}`}>Entrar</button>
-            <button onClick={()=>{setAuthScreen('register');setAuthErr('');}} className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${!isLogin?'bg-[#1D6FA4] text-white shadow-sm':th('text-slate-500','text-slate-400')}`}>Criar Conta</button>
+          <div className="flex p-1 rounded-2xl mb-6 gap-1" style={{backgroundColor:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.18)'}}>
+            <button onClick={()=>{setAuthScreen('login');setAuthErr('');}} className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all" style={isLogin?{backgroundColor:'#F0B429',color:'#1A3A5C'}:{color:'rgba(255,255,255,0.6)'}}>Entrar</button>
+            <button onClick={()=>{setAuthScreen('register');setAuthErr('');}} className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all" style={!isLogin?{backgroundColor:'#F0B429',color:'#1A3A5C'}:{color:'rgba(255,255,255,0.6)'}}>Criar Conta</button>
           </div>
 
-          <form onSubmit={isLogin?doLogin:doRegister} className="space-y-3.5">
+          {/* Form */}
+          <form onSubmit={isLogin?doLogin:doRegister} className="space-y-4">
             {!isLogin&&(
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Seu Nome</label>
-                <input required={!isLogin} type="text" value={authForm.name} onChange={e=>setAuthForm({...authForm,name:e.target.value})} placeholder="Ex: Davi" className={inp}/>
+                <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{color:'rgba(255,255,255,0.9)'}}>Seu Nome</label>
+                <input required={!isLogin} type="text" value={authForm.name} onChange={e=>setAuthForm({...authForm,name:e.target.value})} placeholder="Ex: Davi" className="w-full px-4 py-3.5 rounded-xl text-sm font-medium outline-none transition-all" style={{backgroundColor:'rgba(255,255,255,0.12)',border:'1.5px solid rgba(255,255,255,0.35)',color:'white'}}
+                  onFocus={e=>{e.target.style.border='1.5px solid rgba(255,255,255,0.8)';e.target.style.backgroundColor='rgba(255,255,255,0.18)'}}
+                  onBlur={e=>{e.target.style.border='1.5px solid rgba(255,255,255,0.35)';e.target.style.backgroundColor='rgba(255,255,255,0.12)'}}/>
               </div>
             )}
             {!isLogin&&(
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Nome da Empresa</label>
-                <input type="text" value={authForm.companyName||''} onChange={e=>setAuthForm({...authForm,companyName:e.target.value})} placeholder="Ex: Minha Empresa Ltda" className={inp}/>
+                <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{color:'rgba(255,255,255,0.9)'}}>Nome da Empresa</label>
+                <input type="text" value={authForm.companyName||''} onChange={e=>setAuthForm({...authForm,companyName:e.target.value})} placeholder="Ex: Minha Empresa Ltda" className="w-full px-4 py-3.5 rounded-xl text-sm font-medium outline-none transition-all" style={{backgroundColor:'rgba(255,255,255,0.12)',border:'1.5px solid rgba(255,255,255,0.35)',color:'white'}}
+                  onFocus={e=>{e.target.style.border='1.5px solid rgba(255,255,255,0.8)';e.target.style.backgroundColor='rgba(255,255,255,0.18)'}}
+                  onBlur={e=>{e.target.style.border='1.5px solid rgba(255,255,255,0.35)';e.target.style.backgroundColor='rgba(255,255,255,0.12)'}}/>
               </div>
             )}
             <div>
-              <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">E-mail</label>
-              <input required type="email" value={authForm.email} onChange={e=>setAuthForm({...authForm,email:e.target.value})} placeholder="seu@email.com" className={inp} autoComplete="email"/>
+              <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{color:'rgba(255,255,255,0.9)'}}>E-mail</label>
+              <input required type="email" value={authForm.email} onChange={e=>setAuthForm({...authForm,email:e.target.value})} placeholder="seu@email.com" autoComplete="email" className="w-full px-4 py-3.5 rounded-xl text-sm font-medium outline-none transition-all" style={{backgroundColor:'rgba(255,255,255,0.12)',border:'1.5px solid rgba(255,255,255,0.35)',color:'white'}}
+                onFocus={e=>{e.target.style.border='1.5px solid rgba(255,255,255,0.8)';e.target.style.backgroundColor='rgba(255,255,255,0.18)'}}
+                onBlur={e=>{e.target.style.border='1.5px solid rgba(255,255,255,0.35)';e.target.style.backgroundColor='rgba(255,255,255,0.12)'}}/>
             </div>
             <div>
-              <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Senha {!isLogin&&<span className="font-normal text-slate-400 normal-case">(mín. 6 caracteres)</span>}</label>
-              <input required type="password" value={authForm.password} onChange={e=>setAuthForm({...authForm,password:e.target.value})} placeholder={isLogin?'Sua senha':'Crie uma senha segura'} className={inp} autoComplete={isLogin?'current-password':'new-password'}/>
+              <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{color:'rgba(255,255,255,0.9)'}}>
+                Senha {!isLogin&&<span className="font-normal normal-case" style={{color:'rgba(255,255,255,0.5)'}}>(mín. 6 caracteres)</span>}
+              </label>
+              <input required type="password" value={authForm.password} onChange={e=>setAuthForm({...authForm,password:e.target.value})} placeholder={isLogin?'Sua senha':'Crie uma senha segura'} autoComplete={isLogin?'current-password':'new-password'} className="w-full px-4 py-3.5 rounded-xl text-sm font-medium outline-none transition-all" style={{backgroundColor:'rgba(255,255,255,0.12)',border:'1.5px solid rgba(255,255,255,0.35)',color:'white'}}
+                onFocus={e=>{e.target.style.border='1.5px solid rgba(255,255,255,0.8)';e.target.style.backgroundColor='rgba(255,255,255,0.18)'}}
+                onBlur={e=>{e.target.style.border='1.5px solid rgba(255,255,255,0.35)';e.target.style.backgroundColor='rgba(255,255,255,0.12)'}}/>
             </div>
             {authErr&&(
-              <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200">
-                <Ic n="wn" s={14} c="text-rose-500 shrink-0 mt-0.5"/>
-                <p className="text-xs text-rose-700 leading-relaxed">{authErr}</p>
+              <div className="flex items-start gap-2 p-3 rounded-xl" style={{backgroundColor:'rgba(229,62,62,0.2)',border:'1px solid rgba(229,62,62,0.4)'}}>
+                <Ic n="wn" s={14} c="text-rose-300 shrink-0 mt-0.5"/>
+                <p className="text-xs text-rose-200 leading-relaxed">{authErr}</p>
               </div>
             )}
-            <button type="submit" disabled={authLoading} className="w-full bg-[#1D6FA4] hover:bg-[#155D8A] disabled:opacity-60 text-white py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2">
+            <button type="submit" disabled={authLoading} className="w-full py-4 rounded-xl font-bold text-base transition-all flex items-center justify-center gap-2 mt-2" style={{backgroundColor:'#F0B429',color:'#1A3A5C',boxShadow:'0 4px 20px rgba(240,180,41,0.5)'}}>
               {authLoading?<><Ic n="rf" s={14} c="asp"/>{isLogin?'Entrando…':'Criando conta…'}</>:<>{isLogin?'Entrar':'Criar Conta'}</>}
             </button>
           </form>
 
-          <p className="text-center text-[10px] text-slate-400 mt-5">
+          {/* Footer links */}
+          <p className="text-center text-sm mt-6 font-medium" style={{color:"rgba(255,255,255,0.7)"}}>
             {isLogin?'Ainda não tem conta?':'Já tem uma conta?'}{' '}
-            <button onClick={()=>{setAuthScreen(isLogin?'register':'login');setAuthErr('');}} className="text-[#1D6FA4] font-semibold hover:underline">{isLogin?'Criar conta gratuita':'Entrar agora'}</button>
+            <button onClick={()=>{setAuthScreen(isLogin?'register':'login');setAuthErr('');}} className="font-bold" style={{color:"#F0B429"}}>{isLogin?'Criar conta gratuita':'Entrar agora'}</button>
           </p>
 
-          <div className="flex justify-center mt-4">
-            <button onClick={()=>setDark(!dark)} className={`flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-lg transition-all ${th('text-slate-400 hover:bg-slate-100','text-slate-500 hover:bg-slate-800')}`}><Ic n={dark?'sn':'mn'} s={12}/>{dark?'Modo Claro':'Modo Escuro'}</button>
+          <div className="flex justify-center mt-5">
+            <button onClick={()=>setDark(!dark)} className="flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-lg transition-all hover:bg-white/10" style={{color:"rgba(255,255,255,0.6)"}}><Ic n={dark?'sn':'mn'} s={13}/>{dark?'Modo Claro':'Modo Escuro'}</button>
           </div>
-          <div className="flex items-center justify-center gap-1.5 mt-5 pt-4 border-t border-slate-100">
-            <span className="text-[9px] text-slate-300 uppercase tracking-widest">Powered by</span>
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Kontaê</span>
+
+          <div className="flex items-center justify-center gap-2 mt-6 pt-5" style={{borderTop:'1px solid rgba(255,255,255,0.12)'}}>
+            <span className="text-[10px] uppercase tracking-widest" style={{color:"rgba(255,255,255,0.4)"}}>Powered by</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest" style={{color:"rgba(255,255,255,0.75)"}}>Kontaê</span>
           </div>
         </div>
       </div>
@@ -796,13 +815,14 @@ const App=()=>{
         {/* Logo */}
          <div className={`flex items-center gap-3 px-4 py-5 border-b ${th('border-slate-100','border-slate-800')}`}>
            <div className="w-8 h-8 rounded-lg bg-[#F0B429] flex items-center justify-center shrink-0 shadow-md shadow-[#F0B429]/30">
-             <span style={{display:'flex',flexDirection:'column',alignItems:'center',lineHeight:1}}>
-               <span style={{fontFamily:"Plus Jakarta Sans,sans-serif",fontWeight:300,fontSize:"9px",color:"#1A3A5C",letterSpacing:"-0.3px"}}>R$</span>
-               <span style={{fontFamily:"monospace",fontWeight:400,fontSize:"7px",color:"#1A3A5C",letterSpacing:"0.5px",marginTop:"-1px"}}>{"~>"}</span>
-             </span>
+             <svg width="24" height="20" viewBox="0 0 40 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+               <text x="2" y="16" fontFamily="Plus Jakarta Sans, sans-serif" fontWeight="300" fontSize="16" fill="#1A3A5C" letterSpacing="-0.5">R$</text>
+               <path d="M3 27 Q8 22 13 27 Q18 32 23 27 Q28 22 33 27 L36 24" stroke="#1A3A5C" strokeWidth="1.8" strokeLinecap="round" fill="none"/>
+               <polyline points="32,22 36,24 33,28" stroke="#1A3A5C" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+             </svg>
            </div>
            <div className="hidden lg:block">
-             <div className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Kontaê</div>
+             <div className="text-sm font-bold tracking-wider" style={{fontFamily:'var(--font-display)'}}><span style={{color:dark?'white':'#1A3A5C'}}>KONT</span><span style={{color:'#F0B429'}}>AÊ</span></div>
              <div className="text-[9px] font-medium text-slate-400 uppercase tracking-widest mt-0.5">Sistema de Finanças</div>
            </div>
          </div>
@@ -1634,7 +1654,7 @@ const App=()=>{
               <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">{contactForm.type==='pj'?'Nome / Nome Fantasia':'Nome Completo'}</label><input required type="text" value={contactForm.name} onChange={e=>setContactForm({...contactForm,name:e.target.value})} placeholder={contactForm.type==='pj'?'Ex: Empresa ABC Ltda.':'Ex: João da Silva'} className={inp}/></div>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Telefone</label><input type="tel" value={contactForm.phone} onChange={e=>setContactForm({...contactForm,phone:e.target.value})} placeholder="(00) 00000-0000" className={inp}/></div>
-                <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">E-mail</label><input type="email" value={contactForm.email} onChange={e=>setContactForm({...contactForm,email:e.target.value})} placeholder="email@exemplo.com" className={inp}/></div>
+                <div><label className={`text-[10px] font-bold uppercase tracking-widest block mb-1 ${th("text-white/70","text-white/70")}`}>E-mail</label><input type="email" value={contactForm.email} onChange={e=>setContactForm({...contactForm,email:e.target.value})} placeholder="email@exemplo.com" className={inp}/></div>
               </div>
               <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">{contactForm.type==='pj'?'CNPJ':'CPF'} <span className="normal-case font-normal text-slate-400">(opcional)</span></label><input type="text" value={contactForm.doc} onChange={e=>setContactForm({...contactForm,doc:e.target.value})} placeholder={contactForm.type==='pj'?'00.000.000/0001-00':'000.000.000-00'} className={inp}/></div>
               <button type="submit" className="w-full bg-[#1D6FA4] hover:bg-[#155D8A] text-white py-2.5 rounded-xl text-xs font-semibold transition-all">Salvar Cadastro</button>
