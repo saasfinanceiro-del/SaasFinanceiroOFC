@@ -42,6 +42,10 @@ h1,h2,h3,h4,.display{font-family:var(--font-display)}
 .apu{animation:pu 1.8s infinite}
 .asp{animation:sp 1s linear infinite}
 .bar-in{animation:si .8s ease forwards;transform-origin:left}
+/* Remove number input spinners */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield}
 /* Sidebar transition */
 aside{transition:width .25s ease}
 /* Hover card lift */
@@ -198,6 +202,7 @@ const App=()=>{
   const[tab,setTab]=useState('dashboard');
   const[ent,setEnt]=useState('all');
   const[pf,setPf]=useState('90');
+  const[customDate,setCustomDate]=useState('');
   const[vd,setVd]=useState(new Date());
   const[dark,setDark]=useState(false);
   const[entities,setEntities]=useState([]);
@@ -233,7 +238,7 @@ const App=()=>{
   const catNames=cats.map(c=>c.name);
   const catColor=name=>cats.find(c=>c.name===name)?.color||'#94a3b8';
 
-  const blank={description:'',amount:'',type:'expense',category:cats[0]?.name||'Geral',entityId:'all',date:tStr(),status:'paid',note:'',isRecurring:false,recurrenceInterval:'monthly',recurrenceType:'continuous',installmentsCount:''};
+  const blank={description:'',amount:'',type:'expense',category:cats[0]?.name||'Geral',entityId:'all',date:tStr(),status:'paid',note:'',contactId:'',isRecurring:false,recurrenceInterval:'monthly',recurrenceType:'continuous',installmentsCount:''};
   const[form,setForm]=useState(blank);
   const[eForm,setEForm]=useState({name:'',type:'company'});
   const[cForm,setCForm]=useState({name:'',color:CAT_COLORS[0]});
@@ -500,28 +505,40 @@ const App=()=>{
     if(catFilter)out=out.filter(t=>t.category===catFilter);
     return out;
   },[dItems,srch,catFilter]);
-  /* ── Tax deductions ── */
+  /* ── Tax deductions — impostos separados de taxas+custos ── */
   const taxTotal=useMemo(()=>{
-    const pI=dItems.filter(t=>t.type==='income'&&t.status==='paid').reduce((a,t)=>a+t.amount,0);
-    const pIpend=dItems.filter(t=>t.type==='income'&&t.status==='pending').reduce((a,t)=>a+t.amount,0);
-    // Sum all impostos aliquotas (%)
+    // Filtra por empresa selecionada (mesmo filtro do dItems)
+    const baseItems=dItems;
+    const pI=baseItems.filter(t=>t.type==='income'&&t.status==='paid').reduce((a,t)=>a+t.amount,0);
+    const pIpend=baseItems.filter(t=>t.type==='income'&&t.status==='pending').reduce((a,t)=>a+t.amount,0);
     const impostoRate=impostos.reduce((a,imp)=>a+parseFloat(imp.aliquota||0),0)/100;
-    // Sum all taxas: percentual on income, fixo per transaction
     const taxaRate=taxas.filter(t=>t.tipo==='percentual').reduce((a,tx)=>a+parseFloat(tx.valor||0),0)/100;
     const taxaFixoPaid=taxas.filter(t=>t.tipo==='fixo').length*dItems.filter(t=>t.type==='income'&&t.status==='paid').length*taxas.filter(t=>t.tipo==='fixo').reduce((a,tx)=>a+parseFloat(tx.valor||0),0);
-    const dedPaid=pI*(impostoRate+taxaRate)+taxaFixoPaid;
-    const dedPend=pIpend*(impostoRate+taxaRate);
-    return{dedPaid:Math.round(dedPaid*100)/100,dedPend:Math.round(dedPend*100)/100,rate:Math.round((impostoRate+taxaRate)*10000)/100};
-  },[dItems,impostos,taxas]);
+    const custoPct=custos.length>0?custos.reduce((a,c)=>{const p=parseFloat(c.preco||0);const cu=parseFloat(c.custo||0);return a+(p>0?cu/p:0);},0)/custos.length:0;
+    const impostoDedPaid=Math.round(pI*impostoRate*100)/100;
+    const impostoDedPend=Math.round(pIpend*impostoRate*100)/100;
+    const taxaDedPaid=Math.round((pI*taxaRate+taxaFixoPaid)*100)/100;
+    const taxaDedPend=Math.round(pIpend*taxaRate*100)/100;
+    const custoDedPaid=Math.round(pI*custoPct*100)/100;
+    const custoDedPend=Math.round(pIpend*custoPct*100)/100;
+    const dedPaid=impostoDedPaid+taxaDedPaid+custoDedPaid;
+    const dedPend=impostoDedPend+taxaDedPend+custoDedPend;
+    const rate=Math.round((impostoRate+taxaRate)*10000)/100;
+    return{dedPaid,dedPend,rate,impostoDedPaid,impostoDedPend,taxaDedPaid,taxaDedPend,custoDedPaid,custoDedPend};
+  },[dItems,impostos,taxas,custos]);
   const dSt=useMemo(()=>{
     const pI=dItems.filter(t=>t.type==='income'&&t.status==='paid').reduce((a,t)=>a+t.amount,0);
     const pO=dItems.filter(t=>t.type==='expense'&&t.status==='paid').reduce((a,t)=>a+t.amount,0);
     const peI=dItems.filter(t=>t.type==='income'&&t.status==='pending').reduce((a,t)=>a+t.amount,0);
     const peO=dItems.filter(t=>t.type==='expense'&&t.status==='pending').reduce((a,t)=>a+t.amount,0);
     const tot=pI+pO;
-    const ded=taxTotal.dedPaid;
-    const dedPend=taxTotal.dedPend;
-    return{pI,pO,peI,peO,ded,dedPend,bal:pI-pO-ded,exp:(pI-pO-ded)+(peI-peO-dedPend),iP:tot?pI/tot*100:0,oP:tot?pO/tot*100:0};
+    const ded=taxTotal.impostoDedPaid;
+    const dedPend=taxTotal.impostoDedPend;
+    const taxCustoDedPaid=taxTotal.taxaDedPaid+taxTotal.custoDedPaid;
+    const taxCustoDedPend=taxTotal.taxaDedPend+taxTotal.custoDedPend;
+    const expClosed=pI-pO-taxCustoDedPaid;
+    const expTotal=expClosed+(peI-peO-taxCustoDedPend);
+    return{pI,pO,peI,peO,ded,dedPend,taxCustoDedPaid,taxCustoDedPend,bal:pI-pO-ded,exp:expTotal,iP:tot?pI/tot*100:0,oP:tot?pO/tot*100:0};
   },[dItems,taxTotal]);
   /* FIX 10: only real paid transactions — never virtual */
   const gBal=useMemo(()=>txns.filter(t=>t.status==='paid'&&!t.isVirtual).reduce((a,t)=>a+(t.type==='income'?t.amount:-t.amount),0),[txns]);
@@ -535,7 +552,7 @@ const App=()=>{
   },[dItems,cats]);
 
   /* Forecast */
-  const fAll=useMemo(()=>exp.filter(t=>{if(t.status!=='pending')return false;if(ent!=='all'&&t.entityId!==ent)return false;const diff=dDiff(t.date);if(diff<0)return true;if(pf==='all')return true;return diff<=parseInt(pf,10);}).sort((a,b)=>new Date(a.date)-new Date(b.date)),[exp,ent,pf]);
+  const fAll=useMemo(()=>exp.filter(t=>{if(t.status!=='pending')return false;if(ent!=='all'&&t.entityId!==ent)return false;const diff=dDiff(t.date);if(diff<0)return true;if(customDate){return t.date===customDate;}if(pf==='all')return true;return diff<=parseInt(pf,10);}).sort((a,b)=>new Date(a.date)-new Date(b.date)),[exp,ent,pf,customDate]);
   const ovItems=useMemo(()=>fAll.filter(t=>dDiff(t.date)<0),[fAll]);
   const tdItems=useMemo(()=>fAll.filter(t=>dDiff(t.date)===0),[fAll]);
   const fuItems=useMemo(()=>fAll.filter(t=>dDiff(t.date)>0),[fAll]);
@@ -1045,29 +1062,30 @@ const App=()=>{
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${th('bg-amber-100 text-amber-600','bg-amber-500/20 text-amber-400')}`}><Ic n="pct" s={18}/></div>
                   <div>
-                    <p className={`text-xs font-bold uppercase tracking-wide ${th('text-amber-700','text-amber-400')}`}>Impostos &amp; Taxas do Mês</p>
+                    <p className={`text-xs font-bold uppercase tracking-wide ${th('text-amber-700','text-amber-400')}`}>Impostos do Mês</p>
                     <p className={`text-[10px] mt-0.5 ${th('text-amber-600','text-amber-500')}`}>
-                      {taxTotal.rate>0?`Alíquota total: ${taxTotal.rate}% sobre receitas`:'Taxas fixas aplicadas'}
-                      {dSt.dedPend>0?` · + R$ ${fM(dSt.dedPend)} previsto`:''}
+                      {taxTotal.rate>0?`Alíquota total: ${Math.round(impostos.reduce((a,i)=>a+parseFloat(i.aliquota||0),0)*100)/100}% sobre receitas`:'Configurado'}
+                      {taxTotal.impostoDedPend>0?` · + R$ ${fM(taxTotal.impostoDedPend)} previsto`:''}
                     </p>
                   </div>
                 </div>
-                <div className="text-right shrink-0">
+                {/* Valor do imposto + resultado do fechamento estimado após subtração */}
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
                   <div className="flex items-baseline gap-1 justify-end">
-                    <span className={`text-xs font-semibold ${th('text-amber-600','text-amber-400')}`}>- R$</span>
-                    <span className={`text-2xl font-bold ${th('text-amber-700','text-amber-300')}`} style={{fontFamily:'var(--font-display)'}}>{fM(dSt.ded)}</span>
+                    <span className={`text-xs font-semibold ${th('text-amber-600','text-amber-400')}`}>Imposto: - R$</span>
+                    <span className={`text-2xl font-bold ${th('text-amber-700','text-amber-300')}`} style={{fontFamily:'var(--font-display)'}}>{fM(taxTotal.impostoDedPaid)}</span>
                   </div>
-                  <p className={`text-[10px] ${th('text-amber-500','text-amber-500')}`}>deduzido das receitas</p>
+                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${th('bg-amber-100 border border-amber-300','bg-amber-500/20 border border-amber-500/30')}`}>
+                    <span className={`text-[10px] font-semibold ${th('text-amber-600','text-amber-400')}`}>Fechamento após imposto:</span>
+                    <span className={`text-sm font-bold ${(dSt.exp-taxTotal.impostoDedPaid)<0?'text-rose-600':th('text-amber-700','text-amber-300')}`} style={{fontFamily:'var(--font-display)'}}>
+                      {(dSt.exp-taxTotal.impostoDedPaid)<0?'- ':''}R$&nbsp;{fM(Math.abs(dSt.exp-taxTotal.impostoDedPaid))}
+                    </span>
+                  </div>
                 </div>
                 <div className={`w-full sm:w-auto flex flex-wrap gap-2`}>
                   {impostos.map(imp=>(
                     <span key={imp.id} className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg border ${th('bg-white border-amber-200 text-amber-700','bg-amber-500/10 border-amber-500/30 text-amber-300')}`}>
                       {imp.nome} {imp.aliquota}%
-                    </span>
-                  ))}
-                  {taxas.map(tx=>(
-                    <span key={tx.id} className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg border ${th('bg-white border-amber-200 text-amber-700','bg-amber-500/10 border-amber-500/30 text-amber-300')}`}>
-                      {tx.nome} {tx.tipo==='percentual'?tx.valor+'%':'R$ '+tx.valor}
                     </span>
                   ))}
                 </div>
@@ -1176,12 +1194,28 @@ const App=()=>{
                   <p className="text-[10px] text-slate-400">Inadimplência sempre visível</p>
                 </div>
               </div>
-              <div className={`flex gap-1 p-1 rounded-lg border sh ${th('bg-slate-50 border-slate-200','bg-slate-950 border-slate-700')}`}>
-                {['7','15','30','90','180','all'].map(p=>(
-                  <button key={p} onClick={()=>setPf(p)} className={`px-3 py-1.5 rounded-md text-[10px] font-semibold uppercase tracking-wide transition-all ${pf===p?'bg-[#1D6FA4] text-white shadow-sm':th('text-slate-500 hover:bg-white hover:text-slate-700','text-slate-400 hover:bg-slate-800')}`}>
-                    {p==='all'?'Total':p==='180'?'6M':p==='90'?'3M':`${p}d`}
-                  </button>
-                ))}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className={`flex gap-1 p-1 rounded-lg border sh ${th('bg-slate-50 border-slate-200','bg-slate-950 border-slate-700')}`}>
+                  {['7','15','30','90','180','all'].map(p=>(
+                    <button key={p} onClick={()=>{setPf(p);setCustomDate('');}} className={`px-3 py-1.5 rounded-md text-[10px] font-semibold uppercase tracking-wide transition-all ${pf===p&&!customDate?'bg-[#1D6FA4] text-white shadow-sm':th('text-slate-500 hover:bg-white hover:text-slate-700','text-slate-400 hover:bg-slate-800')}`}>
+                      {p==='all'?'Total':p==='180'?'6M':p==='90'?'3M':`${p}d`}
+                    </button>
+                  ))}
+                </div>
+                {/* Calendário — data específica */}
+                <div className="flex items-center gap-1.5">
+                  <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all ${customDate?'bg-[#1D6FA4] border-[#1D6FA4]':th('bg-slate-50 border-slate-200','bg-slate-950 border-slate-700')}`}>
+                    <Ic n="ca" s={11} c={customDate?'text-white':th('text-slate-400','text-slate-500')}/>
+                    <input
+                      type="date"
+                      value={customDate}
+                      onChange={e=>{setCustomDate(e.target.value);if(e.target.value)setPf('custom');}}
+                      className={`text-[10px] font-semibold outline-none bg-transparent w-28 ${customDate?'text-white':'text-slate-500'}`}
+                      title="Data específica"
+                    />
+                    {customDate&&<button onClick={()=>{setCustomDate('');setPf('90');}} className="text-white/70 hover:text-white"><Ic n="x" s={10}/></button>}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1795,6 +1829,7 @@ const App=()=>{
                 <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Data</label><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} className={inp}/></div>
               </div>
               <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Descrição</label><input required type="text" value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Ex: Faturamento Cliente X" className={inp}/></div>
+              <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Observações <span className="normal-case font-normal">(opcional)</span></label><textarea value={form.note||''} onChange={e=>setForm({...form,note:e.target.value})} placeholder="Detalhes adicionais, referências, etc." rows={2} className={`${inp} resize-none`}/></div>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Categoria</label>
                   <select value={form.category} onChange={e=>setForm({...form,category:e.target.value})} className={inp}>
@@ -1806,6 +1841,13 @@ const App=()=>{
                     <option value="all">Conta Pessoal</option>{entities.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}
                   </select>
                 </div>
+              </div>
+              <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Pessoa / Empresa <span className="normal-case font-normal">(opcional)</span></label>
+                <select value={form.contactId||''} onChange={e=>setForm({...form,contactId:e.target.value})} className={inp}>
+                  <option value="">— Nenhum contato —</option>
+                  {contacts.map(c=><option key={c.id} value={c.id}>{c.name} ({c.type==='pj'?'PJ':'PF'})</option>)}
+                </select>
+                {contacts.length===0&&<p className="text-[10px] text-slate-400 mt-1">Cadastre contatos em <button type="button" onClick={()=>{setShowModal(false);setTab('contacts');}} className="underline text-[#1D6FA4]">Pessoas &amp; Empresas</button></p>}
               </div>
               <div><label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Status</label>
                 <select value={form.status} onChange={e=>setForm({...form,status:e.target.value})} className={inp}>
@@ -2114,6 +2156,7 @@ const App=()=>{
                 {l:'Categoria',v:showTxDetail.category},
                 {l:'Conta / Unidade',v:entities.find(e=>e.id===showTxDetail.entityId)?.name||'Conta Pessoal'},
                 {l:'Tipo',v:(showTxDetail.isRecurring||showTxDetail.isVirtual)?'🔁 Recorrente':'Avulso'},
+                ...(showTxDetail.contactId&&contacts.find(c=>c.id===showTxDetail.contactId)?[{l:'Pessoa / Empresa',v:contacts.find(c=>c.id===showTxDetail.contactId).name}]:[]),
                 ...(showTxDetail.note?[{l:'Observação',v:showTxDetail.note}]:[]),
               ].map((r,i)=>(
                 <div key={i} className={`flex justify-between items-center py-2.5 border-b last:border-0 ${th('border-slate-100','border-slate-800')}`}>
