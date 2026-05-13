@@ -273,7 +273,7 @@ const App=()=>{
   const[custos,setCustos]=useState([]);
   const[showCustoModal,setShowCustoModal]=useState(false);
   const[editCustoId,setEditCustoId]=useState(null);
-  const[custoForm,setCustoForm]=useState({nome:'',custo:'',entityId:'all'});
+  const[custoForm,setCustoForm]=useState({nome:'',custo:'',entityId:'all',calcComImpostos:true,calcComTaxas:true});
 
   const isOwner=userRole==='owner';
   const canWrite=['owner','admin','analista'].includes(userRole);
@@ -1540,7 +1540,7 @@ const App=()=>{
                     <p className={`text-xs ${th('text-slate-400','text-slate-500')}`}>Configure o custo dos seus produtos.</p>
                   </div>
                 </div>
-                <button onClick={()=>{setEditCustoId(null);setCustoForm({nome:'',custo:'',entityId:'all'});setShowCustoModal(true);}} className="flex items-center gap-2 bg-[#1D6FA4] text-white px-3.5 py-2 rounded-xl text-xs font-semibold"><Ic n="plus" s={13}/> Editar Custos</button>
+                <button onClick={()=>{setEditCustoId(null);setCustoForm({nome:'',custo:'',entityId:'all',calcComImpostos:true,calcComTaxas:true});setShowCustoModal(true);}} className="flex items-center gap-2 bg-[#1D6FA4] text-white px-3.5 py-2 rounded-xl text-xs font-semibold"><Ic n="plus" s={13}/> Editar Custos</button>
               </div>
               {custos.length===0?(
                 <div className={`flex flex-col items-center justify-center py-10 ${th('text-slate-400','text-slate-500')}`}>
@@ -1550,8 +1550,10 @@ const App=()=>{
               ):(
                 <div className={`divide-y ${th('divide-slate-100','divide-slate-800')}`}>
                   {custos.map(prod=>{
-                    const totalRate=(impostos.reduce((a,i)=>a+parseFloat(i.aliquota||0),0)+taxas.filter(t=>t.tipo==='percentual').reduce((a,t)=>a+parseFloat(t.valor||0),0))/100;
-                    const taxFixa=taxas.filter(t=>t.tipo==='fixo').reduce((a,t)=>a+parseFloat(t.valor||0),0);
+                    const impostoRate=prod.calcComImpostos!==false?impostos.reduce((a,i)=>a+parseFloat(i.aliquota||0),0)/100:0;
+                    const taxaRate=prod.calcComTaxas!==false?taxas.filter(t=>t.tipo==='percentual').reduce((a,t)=>a+parseFloat(t.valor||0),0)/100:0;
+                    const taxFixa=prod.calcComTaxas!==false?taxas.filter(t=>t.tipo==='fixo').reduce((a,t)=>a+parseFloat(t.valor||0),0):0;
+                    const totalRate=impostoRate+taxaRate;
                     const preco=parseFloat(prod.preco||0);
                     const custo=parseFloat(prod.custo||0);
                     const encargos=preco*totalRate+taxFixa;
@@ -1577,7 +1579,7 @@ const App=()=>{
                           </div>
                           <div className="flex items-center gap-2">
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${margem>=0?th('bg-emerald-100 text-emerald-700','bg-emerald-500/20 text-emerald-400'):th('bg-rose-100 text-rose-700','bg-rose-500/20 text-rose-400')}`}>{margem>=0?'+':''}{margem.toFixed(1)}% margem</span>
-                            <button onClick={()=>{setEditCustoId(prod.id);setCustoForm({nome:prod.nome,preco:prod.preco||'',custo:prod.custo||'',entityId:prod.entityId||'all'});setShowCustoModal(true);}} className={`p-1.5 rounded-lg ${th('hover:bg-slate-100 text-slate-400','hover:bg-slate-700 text-slate-500')}`}><Ic n="pn" s={13}/></button>
+                            <button onClick={()=>{setEditCustoId(prod.id);setCustoForm({nome:prod.nome,preco:prod.preco||'',custo:prod.custo||'',entityId:prod.entityId||'all',calcComImpostos:prod.calcComImpostos!==false,calcComTaxas:prod.calcComTaxas!==false});setShowCustoModal(true);}} className={`p-1.5 rounded-lg ${th('hover:bg-slate-100 text-slate-400','hover:bg-slate-700 text-slate-500')}`}><Ic n="pn" s={13}/></button>
                             <button onClick={()=>rm('custos',prod.id)} className={`p-1.5 rounded-lg ${th('hover:bg-rose-50 text-slate-300 hover:text-rose-500','hover:bg-rose-500/10 text-slate-600 hover:text-rose-400')}`}><Ic n="tr" s={13}/></button>
                           </div>
                         </div>
@@ -1983,15 +1985,44 @@ const App=()=>{
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Custo do Produto (R$)</label>
                 <input required type="number" step="0.01" min="0" value={custoForm.custo} onChange={e=>setCustoForm({...custoForm,custo:e.target.value})} placeholder="0,00" className={inp}/>
               </div>
+              {/* ── Calcular com ── */}
+              <div className={`p-3.5 rounded-xl border ${th('bg-slate-50 border-slate-200','bg-slate-800 border-slate-700')}`}>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2.5">Calcular com:</p>
+                <div className="flex flex-col gap-2">
+                  {[
+                    {key:'calcComImpostos',label:'Imposto',sublabel:impostos.length>0?`${impostos.reduce((a,i)=>a+parseFloat(i.aliquota||0),0)}% sobre receita`:'Nenhum imposto cadastrado',color:'text-amber-500',has:impostos.length>0},
+                    {key:'calcComTaxas',label:'Taxa',sublabel:taxas.length>0?`${taxas.filter(t=>t.tipo==='percentual').reduce((a,t)=>a+parseFloat(t.valor||0),0)}% + taxas fixas`:'Nenhuma taxa cadastrada',color:'text-indigo-500',has:taxas.length>0},
+                  ].map(opt=>(
+                    <label key={opt.key} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-all select-none ${custoForm[opt.key]?th('bg-white border-[#1D6FA4]','bg-slate-900 border-[#1D6FA4]'):th('border-slate-200','border-slate-700')}`}>
+                      {/* Custom checkbox */}
+                      <div onClick={()=>setCustoForm({...custoForm,[opt.key]:!custoForm[opt.key]})}
+                        className={`w-4.5 h-4.5 w-[18px] h-[18px] rounded-[5px] border-2 flex items-center justify-center shrink-0 transition-all ${custoForm[opt.key]?'bg-[#1D6FA4] border-[#1D6FA4]':th('bg-white border-slate-300','bg-slate-800 border-slate-600')}`}>
+                        {custoForm[opt.key]&&<svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                      </div>
+                      <div className="flex-1 min-w-0" onClick={()=>setCustoForm({...custoForm,[opt.key]:!custoForm[opt.key]})}>
+                        <p className={`text-xs font-semibold ${th('text-slate-700','text-slate-200')}`}>{opt.label}</p>
+                        <p className={`text-[10px] ${opt.has?opt.color:'text-slate-400'}`}>{opt.sublabel}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── Prévia da Margem ── */}
               {(()=>{
-                const totalRate=(impostos.reduce((a,i)=>a+parseFloat(i.aliquota||0),0)+taxas.filter(t=>t.tipo==='percentual').reduce((a,t)=>a+parseFloat(t.valor||0),0))/100;
-                const taxFixa=taxas.filter(t=>t.tipo==='fixo').reduce((a,t)=>a+parseFloat(t.valor||0),0);
+                const impostoRate=custoForm.calcComImpostos?impostos.reduce((a,i)=>a+parseFloat(i.aliquota||0),0)/100:0;
+                const taxaRate=custoForm.calcComTaxas?taxas.filter(t=>t.tipo==='percentual').reduce((a,t)=>a+parseFloat(t.valor||0),0)/100:0;
+                const taxaFixa=custoForm.calcComTaxas?taxas.filter(t=>t.tipo==='fixo').reduce((a,t)=>a+parseFloat(t.valor||0),0):0;
+                const totalRate=impostoRate+taxaRate;
                 const preco=parseFloat(custoForm.preco||0);
                 const custo=parseFloat(custoForm.custo||0);
-                const encargos=preco*totalRate+taxFixa;
+                const encargos=preco*totalRate+taxaFixa;
                 const lucro=preco-custo-encargos;
                 const margem=preco>0?(lucro/preco*100):0;
                 if(!preco&&!custo) return null;
+                const encargosLabel=[];
+                if(custoForm.calcComImpostos&&impostos.length>0) encargosLabel.push(`Imp. ${Math.round(impostoRate*100)}%`);
+                if(custoForm.calcComTaxas&&taxas.length>0) encargosLabel.push(`Taxa ${Math.round(taxaRate*100)}%`);
                 return(
                   <div className={`p-3.5 rounded-xl border ${th('bg-slate-50 border-slate-200','bg-slate-800 border-slate-700')}`}>
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2.5">Prévia da Margem</p>
@@ -1999,7 +2030,7 @@ const App=()=>{
                       {[
                         {l:'Preço de venda',v:'R$ '+fM(preco),c:th('text-slate-700','text-slate-200')},
                         {l:'Custo do produto',v:'- R$ '+fM(custo),c:'text-rose-500'},
-                        {l:'Impostos & Taxas ('+Math.round(totalRate*100)+'%)',v:'- R$ '+fM(encargos),c:'text-amber-500'},
+                        ...(encargos>0?[{l:'Encargos'+(encargosLabel.length?' ('+encargosLabel.join(' + ')+')':''),v:'- R$ '+fM(encargos),c:'text-amber-500'}]:[]),
                       ].map((row,i)=>(
                         <div key={i} className="flex justify-between items-center">
                           <span className={`text-xs ${th('text-slate-500','text-slate-400')}`}>{row.l}</span>
