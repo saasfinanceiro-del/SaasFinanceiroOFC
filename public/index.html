@@ -268,12 +268,12 @@ const App=()=>{
   const[taxas,setTaxas]=useState([]);
   const[showImpostoModal,setShowImpostoModal]=useState(false);
   const[showTaxaModal,setShowTaxaModal]=useState(false);
-  const[impostoForm,setImpostoForm]=useState({nome:'',aliquota:'',regra:'faturamento'});
-  const[taxaForm,setTaxaForm]=useState({nome:'',regra:'comissao',formaPagamento:'todas',tipo:'percentual',valor:''});
+  const[impostoForm,setImpostoForm]=useState({nome:'',aliquota:'',regra:'faturamento',entityId:'all'});
+  const[taxaForm,setTaxaForm]=useState({nome:'',regra:'comissao',formaPagamento:'todas',tipo:'percentual',valor:'',entityId:'all'});
   const[custos,setCustos]=useState([]);
   const[showCustoModal,setShowCustoModal]=useState(false);
   const[editCustoId,setEditCustoId]=useState(null);
-  const[custoForm,setCustoForm]=useState({nome:'',custo:''});
+  const[custoForm,setCustoForm]=useState({nome:'',custo:'',entityId:'all'});
 
   const isOwner=userRole==='owner';
   const canWrite=['owner','admin','analista'].includes(userRole);
@@ -511,10 +511,15 @@ const App=()=>{
     const baseItems=dItems;
     const pI=baseItems.filter(t=>t.type==='income'&&t.status==='paid').reduce((a,t)=>a+t.amount,0);
     const pIpend=baseItems.filter(t=>t.type==='income'&&t.status==='pending').reduce((a,t)=>a+t.amount,0);
-    const impostoRate=impostos.reduce((a,imp)=>a+parseFloat(imp.aliquota||0),0)/100;
-    const taxaRate=taxas.filter(t=>t.tipo==='percentual').reduce((a,tx)=>a+parseFloat(tx.valor||0),0)/100;
-    const taxaFixoPaid=taxas.filter(t=>t.tipo==='fixo').length*dItems.filter(t=>t.type==='income'&&t.status==='paid').length*taxas.filter(t=>t.tipo==='fixo').reduce((a,tx)=>a+parseFloat(tx.valor||0),0);
-    const custoPct=custos.length>0?custos.reduce((a,c)=>{const p=parseFloat(c.preco||0);const cu=parseFloat(c.custo||0);return a+(p>0?cu/p:0);},0)/custos.length:0;
+    // Filtra impostos/taxas/custos pela empresa selecionada (all = aplica a todos)
+    const entId=ent;
+    const filtImpostos=impostos.filter(i=>!i.entityId||i.entityId==='all'||i.entityId===entId);
+    const filtTaxas=taxas.filter(t=>!t.entityId||t.entityId==='all'||t.entityId===entId);
+    const filtCustos=custos.filter(c=>!c.entityId||c.entityId==='all'||c.entityId===entId);
+    const impostoRate=filtImpostos.reduce((a,imp)=>a+parseFloat(imp.aliquota||0),0)/100;
+    const taxaRate=filtTaxas.filter(t=>t.tipo==='percentual').reduce((a,tx)=>a+parseFloat(tx.valor||0),0)/100;
+    const taxaFixoPaid=filtTaxas.filter(t=>t.tipo==='fixo').length*baseItems.filter(t=>t.type==='income'&&t.status==='paid').length*filtTaxas.filter(t=>t.tipo==='fixo').reduce((a,tx)=>a+parseFloat(tx.valor||0),0);
+    const custoPct=filtCustos.length>0?filtCustos.reduce((a,c)=>{const p=parseFloat(c.preco||0);const cu=parseFloat(c.custo||0);return a+(p>0?cu/p:0);},0)/filtCustos.length:0;
     const impostoDedPaid=Math.round(pI*impostoRate*100)/100;
     const impostoDedPend=Math.round(pIpend*impostoRate*100)/100;
     const taxaDedPaid=Math.round((pI*taxaRate+taxaFixoPaid)*100)/100;
@@ -525,7 +530,7 @@ const App=()=>{
     const dedPend=impostoDedPend+taxaDedPend+custoDedPend;
     const rate=Math.round((impostoRate+taxaRate)*10000)/100;
     return{dedPaid,dedPend,rate,impostoDedPaid,impostoDedPend,taxaDedPaid,taxaDedPend,custoDedPaid,custoDedPend};
-  },[dItems,impostos,taxas,custos]);
+  },[dItems,impostos,taxas,custos,ent]);
   const dSt=useMemo(()=>{
     const pI=dItems.filter(t=>t.type==='income'&&t.status==='paid').reduce((a,t)=>a+t.amount,0);
     const pO=dItems.filter(t=>t.type==='expense'&&t.status==='paid').reduce((a,t)=>a+t.amount,0);
@@ -1446,7 +1451,7 @@ const App=()=>{
                     <p className={`text-xs ${th('text-slate-400','text-slate-500')}`}>Alíquotas sobre receita/faturamento.</p>
                   </div>
                 </div>
-                <button onClick={()=>{setImpostoForm({nome:'',aliquota:'',regra:'faturamento'});setShowImpostoModal(true);}} className="flex items-center gap-2 bg-[#1D6FA4] text-white px-3.5 py-2 rounded-xl text-xs font-semibold"><Ic n="plus" s={13}/> Adicionar Imposto</button>
+                <button onClick={()=>{setImpostoForm({nome:'',aliquota:'',regra:'faturamento',entityId:'all'});setShowImpostoModal(true);}} className="flex items-center gap-2 bg-[#1D6FA4] text-white px-3.5 py-2 rounded-xl text-xs font-semibold"><Ic n="plus" s={13}/> Adicionar Imposto</button>
               </div>
               {impostos.length===0?(
                 <div className={`flex flex-col items-center justify-center py-10 ${th('text-slate-400','text-slate-500')}`}>
@@ -1460,7 +1465,17 @@ const App=()=>{
                       <div className="flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${th('bg-amber-50 text-amber-500','bg-amber-500/10 text-amber-400')}`}><Ic n="pct" s={14}/></div>
                         <div>
-                          <p className={`text-sm font-semibold ${th('text-slate-800','text-slate-100')}`}>{imp.nome}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className={`text-sm font-semibold ${th('text-slate-800','text-slate-100')}`}>{imp.nome}</p>
+                            {imp.entityId&&imp.entityId!=='all'&&(
+                              <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${th('bg-blue-50 text-blue-600 border-blue-200','bg-blue-500/10 text-blue-400 border-blue-700')}`}>
+                                {entities.find(e=>e.id===imp.entityId)?.name||'Empresa'}
+                              </span>
+                            )}
+                            {(!imp.entityId||imp.entityId==='all')&&(
+                              <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${th('bg-slate-100 text-slate-400 border-slate-200','bg-slate-700 text-slate-400 border-slate-600')}`}>Todas</span>
+                            )}
+                          </div>
                           <p className={`text-xs ${th('text-slate-400','text-slate-500')}`}>Alíquota: <span className="font-bold text-amber-500">{imp.aliquota}%</span> · {imp.regra==='faturamento'?'Sobre faturamento':'Sobre comissão'}</p>
                         </div>
                       </div>
@@ -1481,7 +1496,7 @@ const App=()=>{
                     <p className={`text-xs ${th('text-slate-400','text-slate-500')}`}>Taxas fixas ou percentuais por venda.</p>
                   </div>
                 </div>
-                <button onClick={()=>{setTaxaForm({nome:'',regra:'comissao',formaPagamento:'todas',tipo:'percentual',valor:''});setShowTaxaModal(true);}} className="flex items-center gap-2 bg-[#1D6FA4] text-white px-3.5 py-2 rounded-xl text-xs font-semibold"><Ic n="plus" s={13}/> Adicionar Taxa</button>
+                <button onClick={()=>{setTaxaForm({nome:'',regra:'comissao',formaPagamento:'todas',tipo:'percentual',valor:'',entityId:'all'});setShowTaxaModal(true);}} className="flex items-center gap-2 bg-[#1D6FA4] text-white px-3.5 py-2 rounded-xl text-xs font-semibold"><Ic n="plus" s={13}/> Adicionar Taxa</button>
               </div>
               {taxas.length===0?(
                 <div className={`flex flex-col items-center justify-center py-10 ${th('text-slate-400','text-slate-500')}`}>
@@ -1495,7 +1510,16 @@ const App=()=>{
                       <div className="flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${th('bg-indigo-50 text-indigo-500','bg-indigo-500/10 text-indigo-400')}`}><Ic n="wallet" s={14}/></div>
                         <div>
-                          <p className={`text-sm font-semibold ${th('text-slate-800','text-slate-100')}`}>{tx.nome}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className={`text-sm font-semibold ${th('text-slate-800','text-slate-100')}`}>{tx.nome}</p>
+                            {tx.entityId&&tx.entityId!=='all'?(
+                              <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${th('bg-blue-50 text-blue-600 border-blue-200','bg-blue-500/10 text-blue-400 border-blue-700')}`}>
+                                {entities.find(e=>e.id===tx.entityId)?.name||'Empresa'}
+                              </span>
+                            ):(
+                              <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${th('bg-slate-100 text-slate-400 border-slate-200','bg-slate-700 text-slate-400 border-slate-600')}`}>Todas</span>
+                            )}
+                          </div>
                           <p className={`text-xs ${th('text-slate-400','text-slate-500')}`}><span className="font-bold text-indigo-500">{tx.tipo==='percentual'?tx.valor+'%':'R$ '+tx.valor}</span> · {tx.formaPagamento==='todas'?'Todas as formas':tx.formaPagamento} · {tx.regra==='comissao'?'Comissão':'Faturamento'}</p>
                         </div>
                       </div>
@@ -1516,7 +1540,7 @@ const App=()=>{
                     <p className={`text-xs ${th('text-slate-400','text-slate-500')}`}>Configure o custo dos seus produtos.</p>
                   </div>
                 </div>
-                <button onClick={()=>{setEditCustoId(null);setCustoForm({nome:'',custo:''});setShowCustoModal(true);}} className="flex items-center gap-2 bg-[#1D6FA4] text-white px-3.5 py-2 rounded-xl text-xs font-semibold"><Ic n="plus" s={13}/> Editar Custos</button>
+                <button onClick={()=>{setEditCustoId(null);setCustoForm({nome:'',custo:'',entityId:'all'});setShowCustoModal(true);}} className="flex items-center gap-2 bg-[#1D6FA4] text-white px-3.5 py-2 rounded-xl text-xs font-semibold"><Ic n="plus" s={13}/> Editar Custos</button>
               </div>
               {custos.length===0?(
                 <div className={`flex flex-col items-center justify-center py-10 ${th('text-slate-400','text-slate-500')}`}>
@@ -1538,11 +1562,22 @@ const App=()=>{
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-3">
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${th('bg-emerald-50 text-emerald-600','bg-emerald-500/10 text-emerald-400')}`}><Ic n="tag" s={14}/></div>
-                            <p className={`text-sm font-semibold ${th('text-slate-800','text-slate-100')}`}>{prod.nome}</p>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className={`text-sm font-semibold ${th('text-slate-800','text-slate-100')}`}>{prod.nome}</p>
+                                {prod.entityId&&prod.entityId!=='all'?(
+                                  <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${th('bg-blue-50 text-blue-600 border-blue-200','bg-blue-500/10 text-blue-400 border-blue-700')}`}>
+                                    {entities.find(e=>e.id===prod.entityId)?.name||'Empresa'}
+                                  </span>
+                                ):(
+                                  <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${th('bg-slate-100 text-slate-400 border-slate-200','bg-slate-700 text-slate-400 border-slate-600')}`}>Todas</span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                           <div className="flex items-center gap-2">
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${margem>=0?th('bg-emerald-100 text-emerald-700','bg-emerald-500/20 text-emerald-400'):th('bg-rose-100 text-rose-700','bg-rose-500/20 text-rose-400')}`}>{margem>=0?'+':''}{margem.toFixed(1)}% margem</span>
-                            <button onClick={()=>{setEditCustoId(prod.id);setCustoForm({nome:prod.nome,preco:prod.preco||'',custo:prod.custo||''});setShowCustoModal(true);}} className={`p-1.5 rounded-lg ${th('hover:bg-slate-100 text-slate-400','hover:bg-slate-700 text-slate-500')}`}><Ic n="pn" s={13}/></button>
+                            <button onClick={()=>{setEditCustoId(prod.id);setCustoForm({nome:prod.nome,preco:prod.preco||'',custo:prod.custo||'',entityId:prod.entityId||'all'});setShowCustoModal(true);}} className={`p-1.5 rounded-lg ${th('hover:bg-slate-100 text-slate-400','hover:bg-slate-700 text-slate-500')}`}><Ic n="pn" s={13}/></button>
                             <button onClick={()=>rm('custos',prod.id)} className={`p-1.5 rounded-lg ${th('hover:bg-rose-50 text-slate-300 hover:text-rose-500','hover:bg-rose-500/10 text-slate-600 hover:text-rose-400')}`}><Ic n="tr" s={13}/></button>
                           </div>
                         </div>
@@ -1932,6 +1967,14 @@ const App=()=>{
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Nome do Produto</label>
                 <input required type="text" value={custoForm.nome} onChange={e=>setCustoForm({...custoForm,nome:e.target.value})} placeholder="Ex: Acesso Mensal" className={inp}/>
               </div>
+              {/* Empresa vinculada */}
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Empresa <span className="normal-case font-normal">(opcional)</span></label>
+                <select value={custoForm.entityId||'all'} onChange={e=>setCustoForm({...custoForm,entityId:e.target.value})} className={inp}>
+                  <option value="all">Todas as empresas</option>
+                  {entities.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}
+                </select>
+              </div>
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Preço de Venda (R$)</label>
                 <input required type="number" step="0.01" min="0" value={custoForm.preco||''} onChange={e=>setCustoForm({...custoForm,preco:e.target.value})} placeholder="0,00" className={inp}/>
@@ -1994,6 +2037,15 @@ const App=()=>{
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Nome do Imposto</label>
                 <input required type="text" value={impostoForm.nome} onChange={e=>setImpostoForm({...impostoForm,nome:e.target.value})} placeholder="Ex: Imposto do Anúncio (Meta)" className={inp}/>
               </div>
+              {/* Empresa vinculada */}
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Empresa <span className="normal-case font-normal">(opcional)</span></label>
+                <select value={impostoForm.entityId||'all'} onChange={e=>setImpostoForm({...impostoForm,entityId:e.target.value})} className={inp}>
+                  <option value="all">Todas as empresas</option>
+                  {entities.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}
+                </select>
+                {entities.length===0&&<p className="text-[10px] text-slate-400 mt-1">Cadastre empresas em <button type="button" onClick={()=>{setShowImpostoModal(false);setTab('settings');}} className="underline text-[#1D6FA4]">Configurações → Contas &amp; Unidades</button></p>}
+              </div>
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-2">Regra de Cálculo</label>
                 <div className="flex gap-2">
@@ -2024,6 +2076,14 @@ const App=()=>{
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Nome</label>
                 <input required type="text" value={taxaForm.nome} onChange={e=>setTaxaForm({...taxaForm,nome:e.target.value})} placeholder="Taxa adicional..." className={inp}/>
+              </div>
+              {/* Empresa vinculada */}
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Empresa <span className="normal-case font-normal">(opcional)</span></label>
+                <select value={taxaForm.entityId||'all'} onChange={e=>setTaxaForm({...taxaForm,entityId:e.target.value})} className={inp}>
+                  <option value="all">Todas as empresas</option>
+                  {entities.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}
+                </select>
               </div>
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-2">Regra de Cálculo</label>
