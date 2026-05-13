@@ -934,25 +934,27 @@ const App=()=>{
         {/* Top bar */}
         <div className={`sticky top-0 z-20 px-6 py-4 flex items-center justify-between border-b ${th('bg-white/80 border-slate-200 backdrop-blur-sm','bg-slate-900/80 border-slate-800 backdrop-blur-sm')}`}>
           <div>
-            {tab==='dashboard'&&companyName?(
+            {tab==='dashboard'?(
               <div>
                 <p className={`text-[10px] font-bold uppercase tracking-widest mb-0.5 ${th('text-[#1D6FA4]','text-[#4A9AC9]')}`}>Fluxo de Operações</p>
-                <h1 className="text-2xl font-extrabold leading-tight" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>{companyName}</h1>
-                <p className={`text-xs mt-0.5 font-medium ${th('text-slate-400','text-slate-500')}`}>{`${MN[vd.getMonth()]} ${vd.getFullYear()} · Acompanhamento em tempo real`}</p>
+                <h1 className="text-2xl font-extrabold leading-tight" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>
+                  {ent==='all'?'Visão Geral':(entities.find(e=>e.id===ent)?.name||companyName||'Dashboard')}
+                </h1>
+                <p className={`text-xs mt-0.5 font-medium ${th('text-slate-400','text-slate-500')}`}>{`${MN[vd.getMonth()]} ${vd.getFullYear()} · ${ent==='all'?'Consolidado de todas as contas':'Acompanhamento em tempo real'}`}</p>
               </div>
             ):(
               <div>
                 <h1 className="text-lg font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>
-                  {tab==='dashboard'?'Fluxo de Operações':tab==='forecast'?'Previsão de Caixa':tab==='contacts'?'Pessoas & Empresas':tab==='team'?'Gestão de Equipe':tab==='planos'?'Planos':'Configurações'}
+                  {tab==='forecast'?'Previsão de Caixa':tab==='contacts'?'Pessoas & Empresas':tab==='team'?'Gestão de Equipe':tab==='planos'?'Planos':'Configurações'}
                 </h1>
-                <p className={`text-xs mt-0.5 font-medium ${th('text-slate-400','text-slate-500')}`}>{tab==='dashboard'?`${MN[vd.getMonth()]} ${vd.getFullYear()} · Acompanhamento em tempo real`:tab==='forecast'?'Liquidez, vencimentos e inadimplência integrados':''}</p>
+                <p className={`text-xs mt-0.5 font-medium ${th('text-slate-400','text-slate-500')}`}>{tab==='forecast'?'Liquidez, vencimentos e inadimplência integrados':''}</p>
               </div>
             )}
           </div>
           {/* Entity filter */}
           {(tab==='dashboard'||tab==='forecast')&&(
             <div className={`hidden md:flex items-center p-1 rounded-xl border gap-0.5 ${th('bg-slate-50 border-slate-200','bg-slate-800 border-slate-700')}`}>
-              <button onClick={()=>setEnt('all')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${ent==='all'?th('bg-white text-[#1D6FA4] shadow-sm','bg-slate-700 text-[#4A9AC9]'):th('text-slate-500','text-slate-400')}`}><Ic n="ly" s={12}/> Todos</button>
+              <button onClick={()=>setEnt('all')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${ent==='all'?th('bg-white text-[#1D6FA4] shadow-sm','bg-slate-700 text-[#4A9AC9]'):th('text-slate-500','text-slate-400')}`}><Ic n="ly" s={12}/> Visão Geral</button>
               {entities.map(e=><button key={e.id} onClick={()=>setEnt(e.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${ent===e.id?th('bg-white text-[#1D6FA4] shadow-sm','bg-slate-700 text-[#4A9AC9]'):th('text-slate-500','text-slate-400')}`}><Ic n={e.type==='company'?'bd':'cd'} s={12}/>{e.name}</button>)}
             </div>
           )}
@@ -1791,6 +1793,31 @@ const App=()=>{
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Nome da Empresa</label>
                 <input type="text" value={profileForm.companyName} onChange={e=>setProfileForm({...profileForm,companyName:e.target.value})} placeholder="Nome da sua empresa" className={inp}/>
+                <div className={`mt-3 p-3.5 rounded-xl border ${th('bg-slate-50 border-slate-200','bg-slate-800 border-slate-700')}`}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Adicionar Empresa</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={profileForm.newEntityName||''}
+                      onChange={e=>setProfileForm({...profileForm,newEntityName:e.target.value})}
+                      placeholder="Nome da nova empresa"
+                      className={inp+' flex-1'}
+                    />
+                    <button
+                      type="button"
+                      onClick={()=>{
+                        const name=(profileForm.newEntityName||'').trim();
+                        if(!name)return;
+                        const id=`ent-${Date.now()}`;
+                        sv('entities',id,{id,name,type:'company'});
+                        setProfileForm({...profileForm,newEntityName:''});
+                        setProfileMsg('ok:Empresa adicionada em Contas & Unidades!');
+                      }}
+                      className="px-3 py-2 bg-[#1D6FA4] hover:bg-[#155D8A] text-white rounded-xl text-xs font-semibold shrink-0 flex items-center gap-1"
+                    ><Ic n="plus" s={13}/> Adicionar</button>
+                  </div>
+                  <p className={`text-[10px] mt-2 ${th('text-slate-400','text-slate-500')}`}>A empresa será criada em Contas &amp; Unidades automaticamente.</p>
+                </div>
               </div>
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">E-mail</label>
