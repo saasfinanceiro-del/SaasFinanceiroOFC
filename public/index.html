@@ -497,7 +497,16 @@ const App=()=>{
   },[txns]);
 
   /* Dashboard stats */
-  const dItems=useMemo(()=>exp.filter(t=>{if(ent!=='all'&&t.entityId!==ent)return false;const[y,m]=t.date.split('-').map(Number);return(m-1)===vd.getMonth()&&y===vd.getFullYear();}).sort((a,b)=>new Date(a.date)-new Date(b.date)),[exp,ent,vd]);
+  /* DUAL-TEMPORALITY:
+     - Pendentes: aparecem pelo date (competencia - mes da fatura)
+     - Pagas: aparecem pelo paymentDate (caixa real - quando o dinheiro saiu)
+       Se nao tiver paymentDate (registro antigo), usa o date como fallback */
+  const dItems=useMemo(()=>exp.filter(t=>{
+    if(ent!=='all'&&t.entityId!==ent)return false;
+    const refDate=t.status==='paid'?(t.paymentDate||t.date):t.date;
+    const[y,m]=refDate.split('-').map(Number);
+    return(m-1)===vd.getMonth()&&y===vd.getFullYear();
+  }).sort((a,b)=>new Date(a.date)-new Date(b.date)),[exp,ent,vd]);
   /* FIX 2/4: filter by text search AND category tag */
   const fdItems=useMemo(()=>{
     let out=dItems;
@@ -589,12 +598,12 @@ const App=()=>{
   const openEf=t=>setEfMod({o:true,tx:t,date:tStr()});
   const confEf=()=>{
     const{tx,date}=efMod;
+    /* DUAL-TEMPORALITY: date = competência (origem da fatura), paymentDate = caixa real (quando o usuário pagou) */
     if(tx.isVirtual){
       const bd=tx.description.replace(/ \(Parcela \d+\/\d+\)$/,'');
       const lbl=tx.recurrenceType==='installments'?` (Parcela ${tx.recIndex+1}/${tx.installmentsCount})`:'';
-      /* FIX 16: realizedIndex as String, date = actual payment date */
-      sv('transactions',`tx-r-${Date.now()}`,{description:`${bd}${lbl}`,amount:tx.amount,type:tx.type,category:tx.category,entityId:tx.entityId,date,status:'paid',note:tx.note||'',isRecurring:false,realizedBaseId:tx.baseId,realizedIndex:String(tx.recIndex)});
-    }else{const{id,...rest}=tx;sv('transactions',id,{...rest,status:'paid',date});}
+      sv('transactions',`tx-r-${Date.now()}`,{description:`${bd}${lbl}`,amount:tx.amount,type:tx.type,category:tx.category,entityId:tx.entityId,date:tx.date,paymentDate:date,status:'paid',note:tx.note||'',isRecurring:false,realizedBaseId:tx.baseId,realizedIndex:String(tx.recIndex)});
+    }else{const{id,...rest}=tx;sv('transactions',id,{...rest,status:'paid',paymentDate:date});}
     setEfMod({o:false,tx:null,date:''});
   };
 
@@ -1942,7 +1951,7 @@ const App=()=>{
             <div className="mb-4">
               <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1.5">Data do Pagamento</label>
               <input type="date" value={efMod.date} onChange={e=>setEfMod({...efMod,date:e.target.value})} className={inp}/>
-              <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">⚠️ O lançamento aparecerá no mês da data informada acima — não necessariamente no mês de origem.</p>
+              <p className={`text-[10px] text-slate-400 mt-1.5 leading-relaxed`}>⚠️ O débito ocorrerá no mês do pagamento. A competência (mês de origem da fatura) é preservada nos relatórios.</p>
             </div>
             <div className="flex gap-2">
               <button onClick={()=>setEfMod({o:false,tx:null,date:''})} className={`flex-1 py-2.5 rounded-xl text-xs font-semibold ${th('bg-slate-100 text-slate-600','bg-slate-800 text-slate-300')}`}>Cancelar</button>
