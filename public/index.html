@@ -474,7 +474,18 @@ const App=()=>{
   /* Unit balances — FIX 10: exclude virtual */
   const unitBal=useMemo(()=>{
     const m={};
-    txns.filter(t=>t.status==='paid'&&!t.isVirtual).forEach(t=>{const k=t.entityId||'all';m[k]=(m[k]||0)+(t.type==='income'?t.amount:-t.amount);});
+    txns.filter(t=>!t.isVirtual).forEach(t=>{
+      const k=t.entityId||'all';
+      if(!m[k])m[k]={bal:0,inc:0,exp:0,pend:0};
+      if(t.status==='paid'){
+        const v=t.type==='income'?t.amount:-t.amount;
+        m[k].bal=(m[k].bal||0)+v;
+        if(t.type==='income')m[k].inc=(m[k].inc||0)+t.amount;
+        else m[k].exp=(m[k].exp||0)+t.amount;
+      } else {
+        m[k].pend=(m[k].pend||0)+(t.type==='income'?t.amount:-t.amount);
+      }
+    });
     return m;
   },[txns]);
 
@@ -1339,13 +1350,29 @@ const App=()=>{
                      </div>
                      <button onClick={()=>setShowPersonalModal(true)} className={`p-1.5 rounded-lg ${th('text-slate-400 hover:text-[#1D6FA4] hover:bg-[#E8F2FA]','text-slate-500 hover:text-[#4A9AC9] hover:bg-[#1D6FA4]/10')}`}><Ic n="pn" s={13}/></button>
                    </div>
-                   <div className={`text-xl font-bold ${(unitBal['all']||0)>=0?th('text-slate-800','text-white'):'text-rose-500'}`} style={{fontFamily:'var(--font-display)'}}>
-                     {(unitBal['all']||0)<0?'- ':''}R$&nbsp;{fM(Math.abs(unitBal['all']||0))}
+                   <div className={`text-xl font-bold ${((unitBal['all']||{}).bal||0)>=0?th('text-slate-800','text-white'):'text-rose-500'}`} style={{fontFamily:'var(--font-display)'}}>
+                     {((unitBal['all']||{}).bal||0)<0?'- ':''}R$&nbsp;{fM(Math.abs((unitBal['all']||{}).bal||0))}
                    </div>
                    <div className="flex items-center gap-1 mt-1">
-                     <span className={`w-2 h-2 rounded-full ${(unitBal['all']||0)>=0?'bg-emerald-500':'bg-rose-500'}`}></span>
-                     <span className="text-[9px] text-slate-400">{(unitBal['all']||0)>=0?'Saldo positivo':'Saldo negativo'}</span>
+                     <span className={`w-2 h-2 rounded-full ${((unitBal['all']||{}).bal||0)>=0?'bg-emerald-500':'bg-rose-500'}`}></span>
+                     <span className="text-[9px] text-slate-400">{((unitBal['all']||{}).bal||0)>=0?'Saldo positivo':'Saldo negativo'}</span>
                    </div>
+                   {((unitBal['all']||{}).inc||0)>0||((unitBal['all']||{}).exp||0)>0?(
+                     <div className={`mt-2 pt-2 border-t flex gap-3 ${th('border-slate-100','border-slate-800')}`}>
+                       <div>
+                         <p className="text-[9px] text-slate-400 uppercase tracking-wide">Entradas</p>
+                         <p className="text-xs font-semibold text-emerald-500">+R$ {fM((unitBal['all']||{}).inc||0)}</p>
+                       </div>
+                       <div>
+                         <p className="text-[9px] text-slate-400 uppercase tracking-wide">Saídas</p>
+                         <p className="text-xs font-semibold text-rose-500">-R$ {fM((unitBal['all']||{}).exp||0)}</p>
+                       </div>
+                       {((unitBal['all']||{}).pend||0)!==0&&<div>
+                         <p className="text-[9px] text-slate-400 uppercase tracking-wide">Pendente</p>
+                         <p className={`text-xs font-semibold ${th('text-amber-500','text-amber-400')}`}>{((unitBal['all']||{}).pend||0)>0?'+':'-'}R$ {fM(Math.abs((unitBal['all']||{}).pend||0))}</p>
+                       </div>}
+                     </div>
+                   ):null}
                    {(personalAcc.accountType||personalAcc.doc)&&(
                      <div className={`mt-2 pt-2 border-t flex flex-wrap gap-x-3 ${th('border-slate-100','border-slate-800')}`}>
                        {personalAcc.accountType&&<span className="text-[9px] text-slate-400">{personalAcc.accountType==='corrente'?'Conta Corrente':personalAcc.accountType==='poupanca'?'Poupança':personalAcc.accountType==='investimento'?'Investimento':'Pagamento'}</span>}
@@ -1354,7 +1381,7 @@ const App=()=>{
                    )}
                  </div>
                 {entities.map(e=>{
-                  const bal=unitBal[e.id]||0;const healthy=bal>=0;
+                  const ud=unitBal[e.id]||{};const bal=ud.bal||0;const inc=ud.inc||0;const exp=ud.exp||0;const pend=ud.pend||0;const healthy=bal>=0;
                   return(
                     <div key={e.id} className={`p-4 rounded-xl border card-hover ${th('bg-white border-slate-100','bg-slate-900 border-slate-800')}`}>
                       <div className="flex items-center justify-between mb-3">
@@ -1377,6 +1404,22 @@ const App=()=>{
                         <span className={`w-2 h-2 rounded-full ${healthy?'bg-emerald-500':'bg-rose-500'}`}></span>
                         <span className="text-[9px] text-slate-400">{healthy?'Saldo positivo':'Saldo negativo'}</span>
                       </div>
+                      {(inc>0||exp>0)&&(
+                        <div className={`mt-2 pt-2 border-t flex gap-3 ${th('border-slate-100','border-slate-800')}`}>
+                          <div>
+                            <p className="text-[9px] text-slate-400 uppercase tracking-wide">Entradas</p>
+                            <p className="text-xs font-semibold text-emerald-500">+R$ {fM(inc)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] text-slate-400 uppercase tracking-wide">Saídas</p>
+                            <p className="text-xs font-semibold text-rose-500">-R$ {fM(exp)}</p>
+                          </div>
+                          {pend!==0&&<div>
+                            <p className="text-[9px] text-slate-400 uppercase tracking-wide">Pendente</p>
+                            <p className={`text-xs font-semibold ${th('text-amber-500','text-amber-400')}`}>{pend>0?'+':'-'}R$ {fM(Math.abs(pend))}</p>
+                          </div>}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
