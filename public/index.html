@@ -10,12 +10,12 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script type="module">
   import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import{getAuth,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,onAuthStateChanged,updateProfile}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import{getAuth,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,onAuthStateChanged,updateProfile,updateEmail,updatePassword,EmailAuthProvider,reauthenticateWithCredential}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   import{getFirestore,collection,onSnapshot,doc,setDoc,deleteDoc,getDoc,addDoc,query,where,getDocs}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
   const cfg={apiKey:"AIzaSyA6GZbf7n8Rb8549pya_vgGV8oztQc33lI",authDomain:"ugroup-financas.firebaseapp.com",projectId:"ugroup-financas",storageBucket:"ugroup-financas.firebasestorage.app",messagingSenderId:"844815204870",appId:"1:844815204870:web:6c9f447eeb5af764307987"};
   const app=initializeApp(cfg);
   window.__auth=getAuth(app);window.__db=getFirestore(app);
-  window.__fb={collection,onSnapshot,doc,setDoc,deleteDoc,getDoc,addDoc,query,where,getDocs,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,onAuthStateChanged,updateProfile};
+  window.__fb={collection,onSnapshot,doc,setDoc,deleteDoc,getDoc,addDoc,query,where,getDocs,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,onAuthStateChanged,updateProfile,updateEmail,updatePassword,EmailAuthProvider,reauthenticateWithCredential};
   window.dispatchEvent(new Event('fbReady'));
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -221,7 +221,11 @@ const App=()=>{
   const[showContactModal,setShowContactModal]=useState(false);
   const[editContactId,setEditContactId]=useState(null);
   const[contactForm,setContactForm]=useState({name:'',type:'pj',phone:'',email:'',doc:''});
-  const[showPersonalModal,setShowPersonalModal]=useState(false); // Point 6
+  const[showPersonalModal,setShowPersonalModal]=useState(false);
+  const[showProfileModal,setShowProfileModal]=useState(false);
+  const[profileForm,setProfileForm]=useState({name:'',companyName:'',email:'',newPassword:'',currentPassword:''});
+  const[profileSaving,setProfileSaving]=useState(false);
+  const[profileMsg,setProfileMsg]=useState(''); // Point 6
   const[personalAcc,setPersonalAcc]=useState({name:'Conta Pessoal',bank:'',agency:'',accountType:'corrente',doc:'',note:''});
   const[efMod,setEfMod]=useState({o:false,tx:null,date:''});
 
@@ -319,6 +323,40 @@ const App=()=>{
   };
 
   const doLogout=()=>{const{signOut}=window.__fb;signOut(window.__auth);};
+
+  const openProfileModal=()=>{
+    setProfileForm({name:user?.displayName||'',companyName:companyName||'',email:user?.email||'',newPassword:'',currentPassword:''});
+    setProfileMsg('');
+    setShowProfileModal(true);
+  };
+
+  const saveProfile=async(e)=>{
+    e.preventDefault();setProfileSaving(true);setProfileMsg('');
+    const{updateProfile,updateEmail,updatePassword,EmailAuthProvider,reauthenticateWithCredential}=window.__fb;
+    const u=window.__auth.currentUser;
+    try{
+      const needReauth=(profileForm.email!==u.email||profileForm.newPassword);
+      if(needReauth&&!profileForm.currentPassword){setProfileMsg('error:Para alterar e-mail ou senha, informe sua senha atual.');setProfileSaving(false);return;}
+      if(needReauth){
+        const cred=EmailAuthProvider.credential(u.email,profileForm.currentPassword);
+        await reauthenticateWithCredential(u,cred);
+      }
+      if(profileForm.name&&profileForm.name!==u.displayName)await updateProfile(u,{displayName:profileForm.name});
+      if(profileForm.email&&profileForm.email!==u.email)await updateEmail(u,profileForm.email);
+      if(profileForm.newPassword&&profileForm.newPassword.length>=6)await updatePassword(u,profileForm.newPassword);
+      if(profileForm.companyName!==companyName){
+        const{doc:fd,setDoc:sd}=window.__fb;
+        await sd(fd(window.__db,'ugrup',workspaceOwnerUid,'settings','profile'),{companyName:profileForm.companyName});
+        setCompanyName(profileForm.companyName);
+      }
+      setProfileMsg('ok:Informações salvas com sucesso!');
+      setProfileForm(f=>({...f,newPassword:'',currentPassword:''}));
+    }catch(err){
+      const msgs={'auth/wrong-password':'Senha atual incorreta.','auth/email-already-in-use':'Este e-mail já está em uso.','auth/invalid-email':'E-mail inválido.','auth/requires-recent-login':'Faça login novamente para alterar estas informações.','auth/weak-password':'Nova senha muito fraca (mín. 6 caracteres).'};
+      setProfileMsg('error:'+(msgs[err.code]||'Erro ao salvar. Tente novamente.'));
+    }
+    setProfileSaving(false);
+  };
   useEffect(()=>{
     if(!user||!fbReady||!workspaceOwnerUid)return;
     const db=window.__db;const{collection,onSnapshot,doc,setDoc}=window.__fb;
@@ -1328,6 +1366,35 @@ const App=()=>{
         {tab==='settings'&&(
           <div className="space-y-8 ai pb-10 max-w-3xl">
 
+            {/* Informações da Conta */}
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Informações da Conta</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Seus dados cadastrais. Clique em editar para atualizar.</p>
+                </div>
+                <button onClick={openProfileModal} className="flex items-center gap-2 bg-[#1D6FA4] text-white px-3.5 py-2 rounded-xl text-xs font-semibold"><Ic n="pn" s={13}/> Editar</button>
+              </div>
+              <div className={`rounded-2xl border divide-y ${th('bg-white border-slate-100 divide-slate-100','bg-slate-900 border-slate-800 divide-slate-800')}`}>
+                <div className="flex items-center justify-between px-5 py-3.5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Nome</p>
+                  <p className={`text-sm font-semibold ${th('text-slate-800','text-white')}`}>{user?.displayName||'—'}</p>
+                </div>
+                <div className="flex items-center justify-between px-5 py-3.5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Empresa</p>
+                  <p className={`text-sm font-semibold ${th('text-slate-800','text-white')}`}>{companyName||'—'}</p>
+                </div>
+                <div className="flex items-center justify-between px-5 py-3.5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">E-mail</p>
+                  <p className={`text-sm font-semibold ${th('text-slate-800','text-white')}`}>{user?.email||'—'}</p>
+                </div>
+                <div className="flex items-center justify-between px-5 py-3.5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Senha</p>
+                  <p className="text-sm font-semibold text-slate-400">••••••••</p>
+                </div>
+              </div>
+            </section>
+
             {/* Contas & Unidades */}
             <section>
               <div className="flex items-center justify-between mb-4">
@@ -1708,6 +1775,57 @@ const App=()=>{
       )}
 
       {/* Modal Conta Pessoal (Point 6) */}
+      {/* ── Profile Modal ── */}
+      {showProfileModal&&(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className={`w-full max-w-md rounded-2xl shadow-xl p-6 ${th('bg-white','bg-slate-900')}`}>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-base font-bold" style={{fontFamily:'var(--font-display)',color:dark?'white':'#0f172a'}}>Informações da Conta</h2>
+              <button onClick={()=>setShowProfileModal(false)} className={`p-1.5 rounded-lg ${th('hover:bg-slate-100','hover:bg-slate-800')}`}><Ic n="x" s={16} c={th('text-slate-400','text-slate-500')}/></button>
+            </div>
+            <form onSubmit={saveProfile} className="space-y-4">
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Nome</label>
+                <input type="text" value={profileForm.name} onChange={e=>setProfileForm({...profileForm,name:e.target.value})} placeholder="Seu nome" className={inp}/>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Nome da Empresa</label>
+                <input type="text" value={profileForm.companyName} onChange={e=>setProfileForm({...profileForm,companyName:e.target.value})} placeholder="Nome da sua empresa" className={inp}/>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">E-mail</label>
+                <input type="email" value={profileForm.email} onChange={e=>setProfileForm({...profileForm,email:e.target.value})} placeholder="seu@email.com" className={inp}/>
+              </div>
+              <div className={`p-4 rounded-xl border ${th('bg-slate-50 border-slate-200','bg-slate-800 border-slate-700')}`}>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Alterar Senha (opcional)</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Nova Senha</label>
+                    <input type="password" value={profileForm.newPassword} onChange={e=>setProfileForm({...profileForm,newPassword:e.target.value})} placeholder="Mín. 6 caracteres" className={inp}/>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Senha Atual <span className="normal-case font-normal">(necessária para alterar e-mail ou senha)</span></label>
+                <input type="password" value={profileForm.currentPassword} onChange={e=>setProfileForm({...profileForm,currentPassword:e.target.value})} placeholder="Confirme sua senha atual" className={inp}/>
+              </div>
+              {profileMsg&&(
+                <div className={`flex items-start gap-2 p-3 rounded-xl border text-xs leading-relaxed ${profileMsg.startsWith('ok:')?th('bg-emerald-50 border-emerald-200 text-emerald-700','bg-emerald-500/10 border-emerald-500/30 text-emerald-400'):th('bg-rose-50 border-rose-200 text-rose-700','bg-rose-500/10 border-rose-500/30 text-rose-400')}`}>
+                  <Ic n={profileMsg.startsWith('ok:')?'ok':'wn'} s={14} c="shrink-0 mt-0.5"/>
+                  {profileMsg.replace(/^(ok|error):/,'')}
+                </div>
+              )}
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={()=>setShowProfileModal(false)} className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all ${th('border-slate-200 text-slate-600 hover:bg-slate-50','border-slate-700 text-slate-400 hover:bg-slate-800')}`}>Cancelar</button>
+                <button type="submit" disabled={profileSaving} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all flex items-center justify-center gap-2 disabled:opacity-60" style={{backgroundColor:'#1D6FA4'}}>
+                  {profileSaving?<><Ic n="rf" s={14} c="asp"/>Salvando…</>:'Salvar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {showPersonalModal&&(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className={`rounded-2xl shadow-2xl w-full max-w-md p-6 ai ${th('bg-white','bg-slate-900')}`}>
