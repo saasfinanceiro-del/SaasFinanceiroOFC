@@ -576,23 +576,35 @@ const App=()=>{
   const projFin=useMemo(()=>gBal+projIn-projOut,[gBal,projIn,projOut]);
   const ovExp=useMemo(()=>ovItems.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0),[ovItems]);
 
-  /* Unit balances — FIX 10: exclude virtual */
+  /* Unit balances — saldo historico acumulado (todos os meses) + resumo do mes visualizado */
   const unitBal=useMemo(()=>{
     const m={};
     txns.filter(t=>!t.isVirtual).forEach(t=>{
       const k=t.entityId||'all';
-      if(!m[k])m[k]={bal:0,inc:0,exp:0,pend:0};
+      if(!m[k])m[k]={bal:0,inc:0,exp:0,pend:0,mInc:0,mExp:0,mPend:0};
+      /* saldo historico: usa paymentDate para pagas, date para pendentes */
       if(t.status==='paid'){
         const v=t.type==='income'?t.amount:-t.amount;
         m[k].bal=(m[k].bal||0)+v;
         if(t.type==='income')m[k].inc=(m[k].inc||0)+t.amount;
         else m[k].exp=(m[k].exp||0)+t.amount;
+        /* resumo do mes visualizado */
+        const refDate=t.paymentDate||t.date;
+        const[ry,rm]=refDate.split('-').map(Number);
+        if((rm-1)===vd.getMonth()&&ry===vd.getFullYear()){
+          if(t.type==='income')m[k].mInc=(m[k].mInc||0)+t.amount;
+          else m[k].mExp=(m[k].mExp||0)+t.amount;
+        }
       } else {
         m[k].pend=(m[k].pend||0)+(t.type==='income'?t.amount:-t.amount);
+        const[ry,rm]=t.date.split('-').map(Number);
+        if((rm-1)===vd.getMonth()&&ry===vd.getFullYear()){
+          m[k].mPend=(m[k].mPend||0)+(t.type==='income'?t.amount:-t.amount);
+        }
       }
     });
     return m;
-  },[txns]);
+  },[txns,vd]);
 
   /* Efetivar */
   const openEf=t=>setEfMod({o:true,tx:t,date:tStr()});
@@ -1765,19 +1777,19 @@ const App=()=>{
                      <span className={`w-2 h-2 rounded-full ${((unitBal['all']||{}).bal||0)>=0?'bg-emerald-500':'bg-rose-500'}`}></span>
                      <span className="text-[9px] text-slate-400">{((unitBal['all']||{}).bal||0)>=0?'Saldo positivo':'Saldo negativo'}</span>
                    </div>
-                   {((unitBal['all']||{}).inc||0)>0||((unitBal['all']||{}).exp||0)>0?(
+                   {((unitBal['all']||{}).mInc||0)>0||((unitBal['all']||{}).mExp||0)>0?(
                      <div className={`mt-2 pt-2 border-t flex gap-3 ${th('border-slate-100','border-slate-800')}`}>
                        <div>
                          <p className="text-[9px] text-slate-400 uppercase tracking-wide">Entradas</p>
-                         <p className="text-xs font-semibold text-emerald-500">+R$ {fM((unitBal['all']||{}).inc||0)}</p>
+                         <p className="text-xs font-semibold text-emerald-500">+R$ {fM((unitBal['all']||{}).mInc||0)}</p>
                        </div>
                        <div>
                          <p className="text-[9px] text-slate-400 uppercase tracking-wide">Saídas</p>
-                         <p className="text-xs font-semibold text-rose-500">-R$ {fM((unitBal['all']||{}).exp||0)}</p>
+                         <p className="text-xs font-semibold text-rose-500">-R$ {fM((unitBal['all']||{}).mExp||0)}</p>
                        </div>
-                       {((unitBal['all']||{}).pend||0)!==0&&<div>
+                       {((unitBal['all']||{}).mPend||0)!==0&&<div>
                          <p className="text-[9px] text-slate-400 uppercase tracking-wide">Pendente</p>
-                         <p className={`text-xs font-semibold ${th('text-amber-500','text-amber-400')}`}>{((unitBal['all']||{}).pend||0)>0?'+':'-'}R$ {fM(Math.abs((unitBal['all']||{}).pend||0))}</p>
+                         <p className={`text-xs font-semibold ${th('text-amber-500','text-amber-400')}`}>{((unitBal['all']||{}).mPend||0)>0?'+':'-'}R$ {fM(Math.abs((unitBal['all']||{}).mPend||0))}</p>
                        </div>}
                      </div>
                    ):null}
@@ -1812,19 +1824,19 @@ const App=()=>{
                         <span className={`w-2 h-2 rounded-full ${healthy?'bg-emerald-500':'bg-rose-500'}`}></span>
                         <span className="text-[9px] text-slate-400">{healthy?'Saldo positivo':'Saldo negativo'}</span>
                       </div>
-                      {(inc>0||exp>0)&&(
+                      {(ud.mInc>0||ud.mExp>0)&&(
                         <div className={`mt-2 pt-2 border-t flex gap-3 ${th('border-slate-100','border-slate-800')}`}>
                           <div>
                             <p className="text-[9px] text-slate-400 uppercase tracking-wide">Entradas</p>
-                            <p className="text-xs font-semibold text-emerald-500">+R$ {fM(inc)}</p>
+                            <p className="text-xs font-semibold text-emerald-500">+R$ {fM(ud.mInc||0)}</p>
                           </div>
                           <div>
                             <p className="text-[9px] text-slate-400 uppercase tracking-wide">Saídas</p>
-                            <p className="text-xs font-semibold text-rose-500">-R$ {fM(exp)}</p>
+                            <p className="text-xs font-semibold text-rose-500">-R$ {fM(ud.mExp||0)}</p>
                           </div>
-                          {pend!==0&&<div>
+                          {(ud.mPend||0)!==0&&<div>
                             <p className="text-[9px] text-slate-400 uppercase tracking-wide">Pendente</p>
-                            <p className={`text-xs font-semibold ${th('text-amber-500','text-amber-400')}`}>{pend>0?'+':'-'}R$ {fM(Math.abs(pend))}</p>
+                            <p className={`text-xs font-semibold ${th('text-amber-500','text-amber-400')}`}>{(ud.mPend||0)>0?'+':'-'}R$ {fM(Math.abs(ud.mPend||0))}</p>
                           </div>}
                         </div>
                       )}
