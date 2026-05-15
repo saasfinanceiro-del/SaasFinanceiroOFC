@@ -8,14 +8,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
-<script type="module">
-  import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import{getAuth,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,onAuthStateChanged,updateProfile,updateEmail,updatePassword,EmailAuthProvider,reauthenticateWithCredential}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-  import{getFirestore,collection,onSnapshot,doc,setDoc,deleteDoc,getDoc,addDoc,query,where,getDocs}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-  const cfg={apiKey:"AIzaSyA6GZbf7n8Rb8549pya_vgGV8oztQc33lI",authDomain:"ugroup-financas.firebaseapp.com",projectId:"ugroup-financas",storageBucket:"ugroup-financas.firebasestorage.app",messagingSenderId:"844815204870",appId:"1:844815204870:web:6c9f447eeb5af764307987"};
-  const app=initializeApp(cfg);
-  window.__auth=getAuth(app);window.__db=getFirestore(app);
-  window.__fb={collection,onSnapshot,doc,setDoc,deleteDoc,getDoc,addDoc,query,where,getDocs,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,onAuthStateChanged,updateProfile,updateEmail,updatePassword,EmailAuthProvider,reauthenticateWithCredential};
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPA_URL='https://exgrqovdovjgwppiurfq.supabase.co';
+  const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV4Z3Jxb3Zkb3ZqZ3dwcGl1cmZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4MjE2MTIsImV4cCI6MjA5NDM5NzYxMn0.kg8cqwCjiYY--C6T9AqqKNQWyT_i6CngDHhGMgD5qTg';
+  window.__sb=supabase.createClient(SUPA_URL,SUPA_KEY);
   window.dispatchEvent(new Event('fbReady'));
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -196,7 +193,7 @@ const DonutChart=({data,dark})=>{
 /* ─── App ──────────────────────────────────────────────────── */
 
 const App=()=>{
-  const[fbReady,setFbReady]=useState(false);
+  const[fbReady,setFbReady]=useState(true);
   const[user,setUser]=useState(null);
   const[cs,setCs]=useState('connecting');
   const[tab,setTab]=useState('dashboard');
@@ -243,7 +240,7 @@ const App=()=>{
   const[eForm,setEForm]=useState({name:'',type:'company'});
   const[cForm,setCForm]=useState({name:'',color:CAT_COLORS[0]});
 
-  /* Firebase */
+  /* Supabase */
   /* Auth state */
   const[authScreen,setAuthScreen]=useState('login'); // 'login' | 'register'
   const[authForm,setAuthForm]=useState({email:'',password:'',name:'',companyName:''});
@@ -279,19 +276,19 @@ const App=()=>{
   const canWrite=['owner','admin','analista'].includes(userRole);
   const canDelete=['owner','admin'].includes(userRole);
 
-  useEffect(()=>{const i=()=>setFbReady(true);if(window.__auth)i();else window.addEventListener('fbReady',i);return()=>window.removeEventListener('fbReady',i);},[]);
+  // Supabase inicializa sincronamente — fbReady sempre true
   useEffect(()=>{
     if(!fbReady)return;
-    const{onAuthStateChanged,getDoc,doc,setDoc}=window.__fb;
-    return onAuthStateChanged(window.__auth,async u=>{
+    const sb=window.__sb;
+    const{data:{subscription}}=sb.auth.onAuthStateChange(async(_,session)=>{
+      const u=session?.user||null;
       setUser(u);
       if(!u){setCs('idle');setWorkspaceOwnerUid(null);setUserRole('owner');return;}
-      const db=window.__db;
       if(pendingInviteToken){
         try{
-          const invSnap=await getDoc(doc(db,'invites',pendingInviteToken));
-          if(invSnap.exists()&&invSnap.data().status==='pending'){
-            const inv=invSnap.data();
+          const{data:invRow}=await sb.from('invites').select('*').eq('id',pendingInviteToken).single();
+          if(invRow&&invRow.status==='pending'){
+            const inv=invRow;
             setInviteInfo(inv);
             setShowInviteAccept(true);
             return;
@@ -299,47 +296,46 @@ const App=()=>{
         }catch(e){}
       }
       try{
-        const profSnap=await getDoc(doc(db,'userProfiles',u.uid));
-        if(profSnap.exists()&&profSnap.data().workspaceOwnerUid){
-          setWorkspaceOwnerUid(profSnap.data().workspaceOwnerUid);
-          setUserRole(profSnap.data().role||'analista');
+        const{data:profRow}=await sb.from('user_profiles').select('*').eq('id',u.id).single();
+        if(profRow&&profRow.workspace_owner_uid){
+          setWorkspaceOwnerUid(profRow.workspace_owner_uid);
+          setUserRole(profRow.role||'analista');
         }else{
-          setWorkspaceOwnerUid(u.uid);
+          setWorkspaceOwnerUid(u.id);
           setUserRole('owner');
         }
-      }catch(e){setWorkspaceOwnerUid(u.uid);setUserRole('owner');}
+      }catch(e){setWorkspaceOwnerUid(u.id);setUserRole('owner');}
     });
-  },[fbReady,pendingInviteToken]);
+    return()=>subscription.unsubscribe();
+  },[pendingInviteToken]);
 
   const doLogin=e=>{
     e.preventDefault();setAuthErr('');setAuthLoading(true);
-    const{signInWithEmailAndPassword}=window.__fb;
-    signInWithEmailAndPassword(window.__auth,authForm.email,authForm.password)
-      .then(()=>{setAuthForm({email:'',password:'',name:''}); setAuthLoading(false);})
-      .catch(err=>{
+    const sb=window.__sb;
+    sb.auth.signInWithPassword({email:authForm.email,password:authForm.password})
+      .then(({error})=>{
+        if(!error){setAuthForm({email:'',password:'',name:''});setAuthLoading(false);return;}
         setAuthLoading(false);
-        const msgs={'auth/user-not-found':'E-mail não cadastrado.','auth/wrong-password':'Senha incorreta.','auth/invalid-credential':'E-mail ou senha incorretos.','auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos.','auth/invalid-email':'E-mail inválido.'};
-        setAuthErr(msgs[err.code]||'Erro ao entrar. Verifique seus dados.');
+        const msgs={'Invalid login credentials':'E-mail ou senha incorretos.','Email not confirmed':'Confirme seu e-mail antes de entrar.','Too many requests':'Muitas tentativas. Aguarde alguns minutos.'};
+        setAuthErr(msgs[error.message]||error.message||'Erro ao entrar. Verifique seus dados.');
       });
   };
 
   const doRegister=e=>{
     e.preventDefault();setAuthErr('');setAuthLoading(true);
-    if(authForm.password.length<6){setAuthErr('A senha deve ter no mínimo 6 caracteres.');setAuthLoading(false);return;}
-    const{createUserWithEmailAndPassword,updateProfile}=window.__fb;
-    createUserWithEmailAndPassword(window.__auth,authForm.email,authForm.password)
-      .then(cred=>updateProfile(cred.user,{displayName:authForm.name||'Usuário'}).then(()=>{
-        if(authForm.companyName){try{const{doc:fd,setDoc:sd}=window.__fb;sd(fd(window.__db,'ugrup',cred.user.uid,'settings','profile'),{companyName:authForm.companyName});}catch(e){}}
+    if(authForm.password.length<8){setAuthErr('A senha deve ter no mínimo 8 caracteres.');setAuthLoading(false);return;}
+    const sb=window.__sb;
+    sb.auth.signUp({email:authForm.email,password:authForm.password,options:{data:{full_name:authForm.name||'Usuário'}}})
+      .then(async({data:reg,error})=>{
+        if(error){setAuthLoading(false);const msgs={'User already registered':'Este e-mail já está cadastrado.'};setAuthErr(msgs[error.message]||error.message||'Erro ao criar conta.');return;}
+        const uid=reg.user.id;
+        if(authForm.companyName){try{await sb.from('settings').upsert({workspace_id:uid,key:'profile',data:{companyName:authForm.companyName}},{onConflict:'workspace_id,key'});}catch(e){}}
         setAuthForm({email:'',password:'',name:'',companyName:''});setAuthLoading(false);
-      }))
-      .catch(err=>{
-        setAuthLoading(false);
-        const msgs={'auth/email-already-in-use':'Este e-mail já está cadastrado.','auth/invalid-email':'E-mail inválido.','auth/weak-password':'Senha muito fraca (mín. 6 caracteres).'};
-        setAuthErr(msgs[err.code]||'Erro ao criar conta. Tente novamente.');
-      });
+      })
+      .catch(()=>{setAuthLoading(false);setAuthErr('Erro ao criar conta. Tente novamente.');});
   };
 
-  const doLogout=()=>{const{signOut}=window.__fb;signOut(window.__auth);};
+  const doLogout=()=>{window.__sb.auth.signOut();};
 
   const openProfileModal=()=>{
     setProfileForm({name:user?.displayName||'',companyName:companyName||'',email:user?.email||'',newPassword:'',currentPassword:''});
@@ -349,72 +345,100 @@ const App=()=>{
 
   const saveProfile=async(e)=>{
     e.preventDefault();setProfileSaving(true);setProfileMsg('');
-    const{updateProfile,updateEmail,updatePassword,EmailAuthProvider,reauthenticateWithCredential}=window.__fb;
-    const u=window.__auth.currentUser;
+    const sb=window.__sb;
     try{
-      const needReauth=(profileForm.email!==u.email||profileForm.newPassword);
-      if(needReauth&&!profileForm.currentPassword){setProfileMsg('error:Para alterar e-mail ou senha, informe sua senha atual.');setProfileSaving(false);return;}
-      if(needReauth){
-        const cred=EmailAuthProvider.credential(u.email,profileForm.currentPassword);
-        await reauthenticateWithCredential(u,cred);
-      }
-      if(profileForm.name&&profileForm.name!==u.displayName)await updateProfile(u,{displayName:profileForm.name});
-      if(profileForm.email&&profileForm.email!==u.email)await updateEmail(u,profileForm.email);
-      if(profileForm.newPassword&&profileForm.newPassword.length>=6)await updatePassword(u,profileForm.newPassword);
+      const updates={};
+      if(profileForm.email&&profileForm.email!==user.email){const{error}=await sb.auth.updateUser({email:profileForm.email});if(error)throw error;}
+      if(profileForm.newPassword&&profileForm.newPassword.length>=6){const{error}=await sb.auth.updateUser({password:profileForm.newPassword});if(error)throw error;}
+      if(profileForm.name){await sb.auth.updateUser({data:{full_name:profileForm.name}});}
       if(profileForm.companyName!==companyName){
-        const{doc:fd,setDoc:sd}=window.__fb;
-        await sd(fd(window.__db,'ugrup',workspaceOwnerUid,'settings','profile'),{companyName:profileForm.companyName});
+        await sb.from('settings').upsert({workspace_id:workspaceOwnerUid,key:'profile',data:{companyName:profileForm.companyName}},{onConflict:'workspace_id,key'});
         setCompanyName(profileForm.companyName);
       }
       setProfileMsg('ok:Informações salvas com sucesso!');
       setProfileForm(f=>({...f,newPassword:'',currentPassword:''}));
     }catch(err){
-      const msgs={'auth/wrong-password':'Senha atual incorreta.','auth/email-already-in-use':'Este e-mail já está em uso.','auth/invalid-email':'E-mail inválido.','auth/requires-recent-login':'Faça login novamente para alterar estas informações.','auth/weak-password':'Nova senha muito fraca (mín. 6 caracteres).'};
-      setProfileMsg('error:'+(msgs[err.code]||'Erro ao salvar. Tente novamente.'));
+      const msgs={'Email rate limit exceeded':'Aguarde antes de alterar o e-mail novamente.'};
+      setProfileMsg('error:'+(msgs[err.message]||'Erro ao salvar. Tente novamente.'));
     }
     setProfileSaving(false);
   };
   useEffect(()=>{
     if(!user||!fbReady||!workspaceOwnerUid)return;
-    const db=window.__db;const{collection,onSnapshot,doc,setDoc}=window.__fb;
+    const sb=window.__sb;
     const uid=workspaceOwnerUid;
-    const u1=onSnapshot(collection(db,'ugrup',uid,'transactions'),snap=>{setTxns(snap.docs.map(d=>({id:d.id,...d.data()})));setCs('synced');},()=>setCs('error'));
-    const u2=onSnapshot(collection(db,'ugrup',uid,'entities'),snap=>{
-      setEntities(snap.docs.map(d=>({id:d.id,...d.data()})));
-    });
-    const u3=onSnapshot(collection(db,'ugrup',uid,'categories'),snap=>{
-      if(!snap.empty)setCats(snap.docs.map(d=>({id:d.id,...d.data()})));
-      else if(isOwner)DEFAULT_CATS.forEach(c=>setDoc(doc(db,'ugrup',uid,'categories',c.id),c));
-    });
-    const u4=onSnapshot(collection(db,'ugrup',uid,'contacts'),snap=>{setContacts(snap.docs.map(d=>({id:d.id,...d.data()})));});
-    const u5=onSnapshot(doc(db,'ugrup',uid,'settings','personalAccount'),snap=>{if(snap.exists())setPersonalAcc(d=>({...d,...snap.data()}));});
-    const u5b=onSnapshot(doc(db,'ugrup',uid,'settings','profile'),snap=>{if(snap.exists()&&snap.data().companyName)setCompanyName(snap.data().companyName);});
-    let u6=()=>{};
-    if(isOwner){u6=onSnapshot(collection(db,'ugrup',uid,'members'),snap=>{setWorkspaceMembers(snap.docs.map(d=>({id:d.id,...d.data()})));});}
-    const u7=onSnapshot(collection(db,'ugrup',uid,'impostos'),snap=>{setImpostos(snap.docs.map(d=>({id:d.id,...d.data()})));});
-    const u8=onSnapshot(collection(db,'ugrup',uid,'taxas'),snap=>{setTaxas(snap.docs.map(d=>({id:d.id,...d.data()})));});
-    const u9=onSnapshot(collection(db,'ugrup',uid,'custos'),snap=>{setCustos(snap.docs.map(d=>({id:d.id,...d.data()})));});
-    return()=>{u1();u2();u3();u4();u5();u5b();u6();u7();u8();u9();};
+    // Carga inicial de todos os dados
+    const loadAll=async()=>{
+      setCs('syncing');
+      try{
+        const[t,e,c,ct,imp,tax,cst,mem,pa,pf]=await Promise.all([
+          sb.from('transactions').select('*').eq('workspace_id',uid).is('deleted_at',null),
+          sb.from('entities').select('*').eq('workspace_id',uid),
+          sb.from('categories').select('*').eq('workspace_id',uid),
+          sb.from('contacts').select('*').eq('workspace_id',uid),
+          sb.from('impostos').select('*').eq('workspace_id',uid),
+          sb.from('taxas').select('*').eq('workspace_id',uid),
+          sb.from('custos').select('*').eq('workspace_id',uid),
+          isOwner?sb.from('members').select('*').eq('workspace_id',uid):{data:[]},
+          sb.from('settings').select('data').eq('workspace_id',uid).eq('key','personalAccount').single(),
+          sb.from('settings').select('data').eq('workspace_id',uid).eq('key','profile').single(),
+        ]);
+        if(t.data)setTxns(t.data);
+        if(e.data)setEntities(e.data);
+        if(c.data&&c.data.length>0)setCats(c.data);
+        else if(isOwner){
+          const defaultCats=DEFAULT_CATS.map(cat=>({...cat,workspace_id:uid}));
+          await sb.from('categories').insert(defaultCats);
+          setCats(defaultCats);
+        }
+        if(ct.data)setContacts(ct.data);
+        if(imp.data)setImpostos(imp.data);
+        if(tax.data)setTaxas(tax.data);
+        if(cst.data)setCustos(cst.data);
+        if(mem.data)setWorkspaceMembers(mem.data);
+        if(pa.data?.data)setPersonalAcc(d=>({...d,...pa.data.data}));
+        if(pf.data?.data?.companyName)setCompanyName(pf.data.data.companyName);
+        setCs('synced');
+      }catch{setCs('error');}
+    };
+    loadAll();
+    // Realtime para transactions (mais crítico)
+    const rt=sb.channel('workspace-'+uid)
+      .on('postgres_changes',{event:'*',schema:'public',table:'transactions',filter:'workspace_id=eq.'+uid},()=>loadAll())
+      .on('postgres_changes',{event:'*',schema:'public',table:'categories',filter:'workspace_id=eq.'+uid},()=>loadAll())
+      .on('postgres_changes',{event:'*',schema:'public',table:'entities',filter:'workspace_id=eq.'+uid},()=>loadAll())
+      .subscribe();
+    return()=>{sb.removeChannel(rt);};
   },[user,fbReady,workspaceOwnerUid,isOwner]);
 
-  const sv=async(col,id,data)=>{if(!user||!fbReady||!workspaceOwnerUid)return;setCs('syncing');try{const{doc,setDoc}=window.__fb;await setDoc(doc(window.__db,'ugrup',workspaceOwnerUid,col,String(id)),data);setCs('synced');}catch{setCs('error');}};
-  const rm=async(col,id)=>{if(!user||!fbReady||!workspaceOwnerUid)return;setCs('syncing');try{const{doc,deleteDoc}=window.__fb;await deleteDoc(doc(window.__db,'ugrup',workspaceOwnerUid,col,String(id)));setCs('synced');}catch{setCs('error');}};
+  const audit=async(action,entity_type,entity_id,description)=>{
+    if(!user||!workspaceOwnerUid)return;
+    try{
+      const sb=window.__sb;
+      const cols=['transactions','entities','categories','contacts','impostos','taxas','custos','members'];
+      if(!cols.includes(entity_type))return;
+      await sb.from('audit_logs').insert({workspace_id:workspaceOwnerUid,actor_user_id:user.id,action,entity_type,entity_id:String(entity_id),description});
+    }catch{}
+  };
+  const sv=async(col,id,data)=>{if(!user||!workspaceOwnerUid)return;setCs('syncing');try{const sb=window.__sb;if(col==='settings'){await sb.from('settings').upsert({workspace_id:workspaceOwnerUid,key:String(id),data},{onConflict:'workspace_id,key'});}else{const row={...data,id:String(id),workspace_id:workspaceOwnerUid};await sb.from(col).upsert(row,{onConflict:'id,workspace_id'});audit(data.id?'update':'create',col,id,data.description||data.name||'');}setCs('synced');}catch{setCs('error');}};
+  const rm=async(col,id)=>{if(!user||!workspaceOwnerUid)return;setCs('syncing');try{const sb=window.__sb;await sb.from(col).delete().eq('id',String(id)).eq('workspace_id',workspaceOwnerUid);audit('delete',col,id,'');setCs('synced');}catch{setCs('error');}};
 
-  const genToken=()=>Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2);
+  const genToken=()=>crypto.randomUUID().replace(/-/g,'');
 
   const createInvite=async(e)=>{
     e.preventDefault();setInviteLoading(true);
     try{
-      const{doc,setDoc}=window.__fb;
+      const sb=window.__sb;
       const token=genToken();
-      await setDoc(doc(window.__db,'invites',token),{
-        ownerUid:user.uid,
-        ownerName:user.displayName||user.email,
-        ownerEmail:user.email,
+      await sb.from('invites').insert({
+        id:token,
+        owner_uid:user.id,
+        owner_name:user.user_metadata?.full_name||user.email,
+        owner_email:user.email,
         role:inviteForm.role,
         email:inviteForm.email,
         status:'pending',
-        createdAt:new Date().toISOString()
+        created_at:new Date().toISOString()
       });
       const link=`${window.location.origin}${window.location.pathname}?invite=${token}`;
       setInviteLink(link);
@@ -424,35 +448,29 @@ const App=()=>{
 
   const acceptInvite=async()=>{
     if(!inviteInfo||!user)return;
+    if(inviteInfo.email&&inviteInfo.email.toLowerCase()!==user.email.toLowerCase()){
+      alert('Este convite foi enviado para outro e-mail. Faça login com o e-mail correto.');
+      setShowInviteAccept(false);
+      window.history.replaceState({},'',window.location.pathname);
+      return;
+    }
     try{
-      const{doc,setDoc}=window.__fb;
-      const db=window.__db;
-      await setDoc(doc(db,'userProfiles',user.uid),{
-        workspaceOwnerUid:inviteInfo.ownerUid,
-        role:inviteInfo.role,
-        joinedAt:new Date().toISOString()
-      });
-      await setDoc(doc(db,'ugrup',inviteInfo.ownerUid,'members',user.uid),{
-        uid:user.uid,
-        email:user.email,
-        name:user.displayName||user.email,
-        role:inviteInfo.role,
-        joinedAt:new Date().toISOString()
-      });
-      await setDoc(doc(db,'invites',pendingInviteToken),{...inviteInfo,status:'accepted'});
-      setWorkspaceOwnerUid(inviteInfo.ownerUid);
+      const sb=window.__sb;
+      await sb.from('user_profiles').upsert({id:user.id,workspace_owner_uid:inviteInfo.owner_uid,role:inviteInfo.role,joined_at:new Date().toISOString()},{onConflict:'id'});
+      await sb.from('members').upsert({user_id:user.id,workspace_id:inviteInfo.owner_uid,email:user.email,name:user.user_metadata?.full_name||user.email,role:inviteInfo.role,joined_at:new Date().toISOString()},{onConflict:'user_id,workspace_id'});
+      await sb.from('invites').update({status:'accepted'}).eq('id',pendingInviteToken);
+      setWorkspaceOwnerUid(inviteInfo.owner_uid);
       setUserRole(inviteInfo.role);
       setShowInviteAccept(false);
       window.history.replaceState({},'',window.location.pathname);
-    }catch(err){console.error('Erro ao aceitar convite:', err); alert('Erro ao aceitar convite: ' + err.message);}
+    }catch(err){alert('Erro ao aceitar convite. Tente novamente.');}
   };
 
   const removeMember=async(memberUid)=>{
     try{
-      const{doc,deleteDoc,setDoc}=window.__fb;
-      const db=window.__db;
-      await deleteDoc(doc(db,'ugrup',user.uid,'members',memberUid));
-      await setDoc(doc(db,'userProfiles',memberUid),{workspaceOwnerUid:null,role:'owner'});
+      const sb=window.__sb;
+      await sb.from('members').delete().eq('user_id',memberUid).eq('workspace_id',user.id);
+      await sb.from('user_profiles').update({workspace_owner_uid:null,role:'owner'}).eq('id',memberUid);
     }catch(err){alert('Erro ao remover membro.');}
   };
 
@@ -2614,7 +2632,7 @@ const App=()=>{
             </div>
             <div className="space-y-2">
               <button onClick={acceptInvite} className="w-full bg-[#1D6FA4] hover:bg-[#155D8A] text-white py-3 rounded-xl font-semibold text-sm transition-all">Aceitar Convite</button>
-              <button onClick={()=>{setShowInviteAccept(false);window.history.replaceState({},'',window.location.pathname);setWorkspaceOwnerUid(user?.uid);setUserRole('owner');}} className={`w-full py-2.5 rounded-xl text-xs font-semibold ${th('bg-slate-100 text-slate-600','bg-slate-800 text-slate-300')}`}>Recusar</button>
+              <button onClick={()=>{setShowInviteAccept(false);window.history.replaceState({},'',window.location.pathname);setWorkspaceOwnerUid(user?.id);setUserRole('owner');}} className={`w-full py-2.5 rounded-xl text-xs font-semibold ${th('bg-slate-100 text-slate-600','bg-slate-800 text-slate-300')}`}>Recusar</button>
             </div>
           </div>
         </div>
@@ -2690,7 +2708,7 @@ const App=()=>{
             </div>
             <div className="space-y-2">
               <button onClick={acceptInvite} className="w-full bg-[#1D6FA4] hover:bg-[#155D8A] text-white py-3 rounded-xl font-semibold text-sm transition-all">Aceitar Convite</button>
-              <button onClick={()=>{setShowInviteAccept(false);window.history.replaceState({},'',window.location.pathname);setWorkspaceOwnerUid(user?.uid);setUserRole('owner');}} className={`w-full py-2.5 rounded-xl text-xs font-semibold ${th('bg-slate-100 text-slate-600','bg-slate-800 text-slate-300')}`}>Recusar</button>
+              <button onClick={()=>{setShowInviteAccept(false);window.history.replaceState({},'',window.location.pathname);setWorkspaceOwnerUid(user?.id);setUserRole('owner');}} className={`w-full py-2.5 rounded-xl text-xs font-semibold ${th('bg-slate-100 text-slate-600','bg-slate-800 text-slate-300')}`}>Recusar</button>
             </div>
           </div>
         </div>
